@@ -6,7 +6,12 @@
 > The water level is how full the context window is. When the water hits the red line, the tank overflows —
 > that's auto-compaction: most cards get washed over the rim, and a golden summary card settles on the bottom.
 
-<p align="center"><img src="docs/media/skill-tank-demo.gif" alt="skill-tank demo: cards drop into the tank, the water rises, overflows and compacts" width="820"></p>
+<table>
+<tr>
+<td align="center" width="50%"><b>Single session</b> · <code>/</code><br><img src="docs/media/skill-tank-demo.gif" alt="Single-session view: a card is drawn from the deck and drops into one big tank; the water rises, overflows and compacts" width="100%"></td>
+<td align="center" width="50%"><b>Table — every session</b> · <code>/table</code><br><img src="docs/media/skill-tank-table.gif" alt="Table view: one tank per session on a card table; cards fly from the hand into different tanks and one tank overflows" width="100%"></td>
+</tr>
+</table>
 
 <p align="center"><a href="docs/media/skill-tank-demo.mp4">Watch the video (MP4)</a></p>
 

@@ -6,7 +6,12 @@
 > 水位就是 context 用了多少。水一碰到紅線就溢出缸緣——那就是自動壓縮：大部分的牌被沖走，
 > 缸底留下一張金色的摘要卡。
 
-<p align="center"><img src="docs/media/skill-tank-demo.gif" alt="skill-tank 示範：牌落水、水位上升、溢出壓縮" width="820"></p>
+<table>
+<tr>
+<td align="center" width="50%"><b>單一 session</b> · <code>/</code><br><img src="docs/media/skill-tank-demo.gif" alt="單一 session 畫面：從牌庫抽牌丟進大水缸，水位上升、溢出壓縮" width="100%"></td>
+<td align="center" width="50%"><b>牌桌：全部 session</b> · <code>/table</code><br><img src="docs/media/skill-tank-table.gif" alt="牌桌畫面：每個 session 一個缸，手牌飛進不同的缸，其中一缸溢出壓縮" width="100%"></td>
+</tr>
+</table>
 
 <p align="center"><a href="docs/media/skill-tank-demo.mp4">看影片 (MP4)</a></p>
 
