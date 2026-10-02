@@ -8,8 +8,8 @@
 
 <table>
 <tr>
-<td align="center"><b>單一 session</b> · <code>/</code><br><img src="docs/media/skill-tank-demo.gif" alt="單一 session 畫面：從牌庫抽牌丟進大水缸，水位上升、溢出壓縮" width="400"></td>
-<td align="center"><b>牌桌：全部 session</b> · <code>/table</code><br><img src="docs/media/skill-tank-table.gif" alt="牌桌畫面：每個 session 一個缸，手牌飛進不同的缸，其中一缸溢出壓縮" width="400"></td>
+<td align="center"><b>單一 session</b> · <code>/</code><br><img src="docs/media/skill-tank-demo.gif" alt="單一 session 畫面：從牌庫抽牌丟進大水缸，水位上升、溢出壓縮" width="380"></td>
+<td align="center"><b>牌桌：全部 session</b> · <code>/table</code><br><img src="docs/media/skill-tank-table.gif" alt="牌桌畫面：每個 session 一個缸，手牌飛進不同的缸，其中一缸溢出壓縮" width="380"></td>
 </tr>
 </table>
 
