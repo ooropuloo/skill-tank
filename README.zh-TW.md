@@ -19,6 +19,38 @@
 
 skill-tank 是一個本機小網頁：把 Claude Code 本來就會寫在 `~/.claude/projects` 的 session 紀錄（transcript），畫成 three.js 的寫實魚缸。不用裝 hook、沒有 npm 相依套件、不動你的 Claude Code 設定。
 
+## Pixel Agents 的續集
+
+[Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) 把每個 Claude Code session 變成辦公室裡的像素小人——
+一眼就看得出**誰在工作**：坐在桌前打字、走來走去、還是在等你回覆。
+
+skill-tank 從另一面看同一批 session：**它們腦袋裡裝了什麼。**
+
+- 🃏 **載入了幾個 skill？** 一個 skill 就是一張牌。越依賴 skill 的 session，缸底堆的牌就越多。
+- 🌊 **context 用了多少？** 水就是 context window。長時間的 session 會看著水慢慢漲上來，紅線快到了也看得出來。
+- 💥 **什麼時候會「失憶」？** 碰到紅線就是自動壓縮：水溢出缸緣、大部分的牌被沖走，只有 Claude Code 重新注入的牌（加一張金色摘要卡）留在缸底。
+
+而且一個缸不夠看：
+
+- **單一 session（`/`）** 是展示用的大水缸——一個 session、它能出的整副牌、還有可以回放的時間軸。
+- **牌桌（`/table`）** 是水族店——**有幾個 session 就有幾個缸**，一字排開放在牌桌上。開五個 Claude Code 視窗，就有五個缸。
+
+> skill-tank 是獨立專案，跟 Pixel Agents 沒有隸屬關係；只是把它們並排放在第二個螢幕上，剛好很搭。
+
+### 一眼看懂水缸
+
+| 看到 | 代表 |
+|---|---|
+| 水位 | 已用 context ÷ 上限（200K 或 1M，每個 session 自動判斷） |
+| 水色變暖、偏橘 | 快要自動壓縮了 |
+| 玻璃上的紅線 | 自動壓縮門檻（上限 − 33K） |
+| 一張牌濺進水裡 | 剛載入一個 skill（Skill 工具或 `/slash` skill 指令） |
+| 缸底堆著的牌 | 還留在這個 session context 裡的 skill |
+| 水溢出、牌被沖走 | 剛發生自動壓縮 |
+| 缸底的金色卡 | 壓縮摘要——session 壓縮後「記得」的東西 |
+| 牌庫裡變暗、有計數的牌 | 出過的 skill，以及出了幾次 |
+| 水退光、缸離開牌桌 | 這個 session 已經安靜下來 |
+
 ## 兩個畫面，一個 server
 
 每個 session 都標成 **專案 · 標題**——session 工作目錄的最後一層資料夾，加上 Claude Code 替它產生的標題（例如 `my-app · Fix login bug`）——一眼就知道那個缸是哪個專案的。

@@ -19,6 +19,39 @@
 
 skill-tank is a small local web app that turns the session transcripts Claude Code already writes to `~/.claude/projects` into a realistic three.js aquarium. No hooks to install, no npm dependencies, no changes to your Claude Code settings.
 
+## The sequel to Pixel Agents
+
+[Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) turns every Claude Code session into a little pixel-art
+character in an office — you can see at a glance **who is working**: typing at a desk, wandering around, waiting for you.
+
+skill-tank looks at the same sessions from the other side: **what is inside their heads.**
+
+- 🃏 **How many skills has it loaded?** Every skill is a card. The more a session leans on skills, the more cards pile up on the bottom of its tank.
+- 🌊 **How full is its context?** The water *is* the context window. You can watch a long session slowly fill up, and you can see the red line coming before it hits.
+- 💥 **When will it forget?** Hitting the red line is auto-compaction: the tank overflows, most cards wash out, and only the ones Claude Code re-injects (plus a golden summary card) stay behind.
+
+And because one tank is never enough:
+
+- **Single session (`/`)** is the big show tank — one session, its whole deck of playable skills, and a timeline you can replay.
+- **Table (`/table`)** is the aquarium shop — **one tank for every live session**, side by side on a card table. Open five Claude Code windows, get five tanks.
+
+> skill-tank is an independent project, not affiliated with Pixel Agents; it just happens to make a very good neighbour
+> for it on a second monitor.
+
+### Read the tank at a glance
+
+| You see | It means |
+|---|---|
+| Water level | Context used ÷ context limit (200K or 1M, detected per session) |
+| Water turning warm / orange | You are getting close to auto-compaction |
+| Red line on the glass | The auto-compaction threshold (limit − 33K) |
+| A card splashing in | A skill was just loaded (Skill tool or a `/slash` skill command) |
+| Cards piled on the bottom | Skills still in this session's context |
+| Tank overflows, cards wash out | Auto-compaction just happened |
+| Golden card on the bottom | The compaction summary — what the session "remembers" |
+| Dimmed card in the deck, with a counter | A skill that was played, and how many times |
+| Tank drains and leaves the table | The session has gone quiet |
+
 ## Two views, one server
 
 Every session is labelled **project · title** — the last folder of the session's working directory, then the title Claude Code generated for it (for example `my-app · Fix login bug`) — so you always know which project a tank belongs to.
