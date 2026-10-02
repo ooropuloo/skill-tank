@@ -184,6 +184,8 @@ button.b:focus-visible,select:focus-visible{outline:2px solid var(--teal);outlin
       <div class="row"><label>示範</label><button class="b" id="dCard" title="從牌庫隨機抽一張丟進缸（也可以直接點牌庫裡的牌）">隨機抽一張</button><button class="b" id="dWater">加水 +6%</button><button class="b" id="dComp">觸發壓縮</button></div>
       <div class="row"><label></label><button class="b" id="dAuto">▶ 自動播放</button><button class="b" id="dReset">清空</button></div>
     </div>
+    <div class="row"><label for="selQ">畫質</label><select id="selQ" title="自動：依實測 GPU 負載調整 fps 上限與解析度；高：原始解析度、60 fps；省電：30 fps、75% 解析度。網址 ?quality=low|high|auto 可覆寫"><option value="auto">自動</option><option value="high">高</option><option value="low">省電</option></select></div>
+    <div class="note" id="perfNote"></div>
     <div class="legend"><span style="--c:var(--user)">user skill</span><span style="--c:var(--plugin)">plugin skill</span><span style="--c:var(--project)">project skill</span><span style="--c:var(--command)">slash command</span><span style="--c:#9aa7b4">built-in</span><span style="--c:var(--summary)">壓縮摘要卡</span></div>
     <div class="note" id="note"></div>
   </div>
@@ -208,12 +210,12 @@ button.b:focus-visible,select:focus-visible{outline:2px solid var(--teal);outlin
 <div id="tip" role="tooltip"></div>
 <div id="toast">⚠ 自動壓縮</div>
 <div id="hint">拖曳旋轉 · 滾輪縮放 · 滑過/點擊卡牌看詳情</div>
-<div id="ver">skill-tank build 2026-10-02 r4</div>
+<div id="ver">skill-tank build 2026-10-02 r5</div>
 
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/"
 } }
 </script>
 <script type="module">
@@ -225,7 +227,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-const VERSION = 'skill-tank build 2026-10-02 r4';
+const VERSION = 'skill-tank build 2026-10-02 r5';
 const Q = new URLSearchParams(location.search);
 const DEMO_ONLY = !!window.SKILL_TANK_DEMO_ONLY;
 const $ = (id) => document.getElementById(id);
@@ -257,9 +259,12 @@ document.querySelectorAll('.ph').forEach((b) => {
 
 /* ---------- renderer / scene ---------- */
 const stage = $('stage');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// r5: antialias off — the scene is drawn through EffectComposer render targets (no MSAA), so an antialiased canvas
+// only paid for a 4x backbuffer that the composited quad never used. Shadow maps re-render only while something moves.
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+let perf = null; // makePerf() below: fps cap / idle throttling / quality
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.84;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 stage.appendChild(renderer.domElement);
@@ -471,11 +476,12 @@ function splash(x, z, strength = 1) {
   for (let i = 0; i < 40; i++) emit(1, x + (Math.random() - .5) * 0.4, y - 0.05 - Math.random() * 0.3, z + (Math.random() - .5) * 0.3, 0, 0.25 + Math.random() * 0.4, 0, 1.5 + Math.random() * 2, 0.012 + Math.random() * 0.018);
   ripples.push({ x, z, t0: clock, amp: 0.06 * strength }); if (ripples.length > 14) ripples.shift();
 }
+let pAlive = 0;
 function stepParticles(dt) {
-  const sy = surfaceY(); const inX = IW / 2, inZ = ID / 2;
+  const sy = surfaceY(); const inX = IW / 2, inZ = ID / 2; const was = pAlive; pAlive = 0;
   for (let i = 0; i < PMAX; i++) {
     if (pLife[i] <= 0) { pAlpha[i] = 0; continue; }
-    pLife[i] -= dt; const k = pKind[i]; const j = i * 3;
+    pAlive++; pLife[i] -= dt; const k = pKind[i]; const j = i * 3;
     if (k === 1) { // bubble
       pVel[j] = Math.sin(clock * 6 + i) * 0.05; pPos[j] += pVel[j] * dt; pPos[j + 1] += pVel[j + 1] * dt; pPos[j + 2] += Math.cos(clock * 5 + i) * 0.04 * dt;
       if (pPos[j + 1] >= sy - 0.01) pLife[i] = 0;
@@ -488,6 +494,7 @@ function stepParticles(dt) {
     }
     pAlpha[i] = clamp(pLife[i] / Math.min(0.35, pMax[i]), 0, 1) * (k === 1 ? 0.7 : 0.95);
   }
+  if (!pAlive && !was) return;
   pGeo.attributes.position.needsUpdate = true; pGeo.attributes.aAlpha.needsUpdate = true; pGeo.attributes.aSize.needsUpdate = true;
 }
 
@@ -590,7 +597,7 @@ function finalizeCompact() {
   const v = V.cards.get(pc.summary.id); if (v) refreshFace(v);
 }
 function applyEvent(e, animate) {
-  M.applied++;
+  M.applied++; if (perf) perf.kick();
   switch (e.type) {
     case 'title': M.title = e.title; break;
     case 'model': M.model = e.model; break;
@@ -747,7 +754,7 @@ function stepCompact(dt) {
   // phase: rise to overflow (0–1.3s)
   if (t < 1.3) V.target = lerp(A.from, 1.06, smooth(0, 1.3, t));
   if (t > 0.9 && t < 3.2) { // overflow spill
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 26 * dt * 60; i++) { // 26 per 60 fps frame
       const side = Math.floor(Math.random() * 4); let x, z, vx = 0, vz = 0;
       if (side < 2) { x = (Math.random() - .5) * IW; z = (side ? 1 : -1) * (ID / 2 + G + 0.02); vz = (side ? 1 : -1) * (0.2 + Math.random() * 0.4); }
       else { z = (Math.random() - .5) * ID; x = (side === 2 ? 1 : -1) * (IW / 2 + G + 0.02); vx = (side === 2 ? 1 : -1) * (0.2 + Math.random() * 0.4); }
@@ -1198,28 +1205,132 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (v) { pinned = v.card.id; tip.classList.add('pinned'); showTip(v, e.clientX, e.clientY); } else { pinned = null; tip.classList.remove('pinned'); tip.style.display = 'none'; }
 });
 
+/* ---------- r5 perf: quality (自動/高/省電), fps cap, idle throttling, hidden-tab pause, GPU-budget governor ---------- */
+// Measured on an Intel UHD 630 at 2560×1300 (r4): the page rendered every vsync and kept the GPU at ~99%.
+// Rules: render only when the frame interval for the current state is due (active = something moves / the user
+// interacts; idle = only ambient motion; deep = 30 s of idle), never while the tab is hidden, and in 自動 step the
+// fps cap down first and the render scale last while the measured GPU time per frame × fps exceeds the budget.
+// Same block in index.html and table.html (both pages share the localStorage key).
+function makePerf(o) {
+  const PRESETS = {
+    high: { prCap: 2, tScale: 1, lite: false, ladder: [{ scale: 1, cap: 60, idle: 30, deep: 30 }] },
+    auto: { prCap: 1.5, tScale: 0.5, lite: true, ladder: [{ scale: 1, cap: 45, idle: 20, deep: 10 }, { scale: 1, cap: 30, idle: 15, deep: 8 }, { scale: 0.85, cap: 30, idle: 12, deep: 6 }, { scale: 0.75, cap: 30, idle: 10, deep: 5 }] },
+    low: { prCap: 1, tScale: 0.35, lite: true, ladder: [{ scale: 0.75, cap: 30, idle: 10, deep: 4 }] },
+  };
+  const NAMES = { auto: '自動', high: '高', low: '省電' };
+  const KEY = 'skilltank.quality', BUDGET_DOWN = 0.6, BUDGET_UP = 0.4;
+  const valid = (q) => q === 'auto' || q === 'high' || q === 'low';
+  const urlQ = new URLSearchParams(location.search).get('quality');
+  let stored = null; try { stored = localStorage.getItem(KEY); } catch {}
+  const P = { mode: valid(urlQ) ? urlQ : valid(stored) ? stored : 'auto', fromUrl: valid(urlQ), level: 0, renders: 0, state: 'active', fps: 0, gpuMs: null, busy: null, NAMES };
+  const gl = o.renderer.getContext(); let tq = null; try { tq = gl.getExtension('EXT_disjoint_timer_query_webgl2'); } catch {}
+  const pend = []; let win = { t0: performance.now(), n: 0, gpu: 0, gn: 0, active: 0 }, lastChange = performance.now(), goodWins = 0;
+  let lastActive = performance.now(), lastTick = 0, lastRender = 0, acc = 0, raf = 0, fn = null;
+  const preset = () => PRESETS[P.mode];
+  const step = () => { const l = preset().ladder; return l[Math.min(P.level, l.length - 1)]; };
+  P.lite = () => !!preset().lite; // cheaper stand-ins for the most expensive full-screen materials (page decides which)
+  P.pixelRatio = () => Math.min(devicePixelRatio || 1, preset().prCap) * step().scale;
+  function apply() {
+    const pr = P.pixelRatio();
+    if (Math.abs(o.renderer.getPixelRatio() - pr) > 1e-6) { o.renderer.setPixelRatio(pr); if (o.composer) o.composer.setPixelRatio(pr); o.resize(); }
+    if ('transmissionResolutionScale' in o.renderer) o.renderer.transmissionResolutionScale = preset().tScale;
+    o.onLite && o.onLite(P.lite());
+    o.onChange && o.onChange(P);
+  }
+  P.kick = () => { lastActive = performance.now(); };
+  P.setMode = (m, persist = true) => {
+    if (!valid(m)) return; P.mode = m; P.level = 0; goodWins = 0; lastChange = performance.now(); P.fromUrl = false;
+    if (persist) { try { localStorage.setItem(KEY, m); } catch {} }
+    apply(); P.kick();
+  };
+  P.info = () => { const s = step(); return { mode: P.mode, name: NAMES[P.mode], fromUrl: P.fromUrl, level: P.level, scale: s.scale, pixelRatio: o.renderer.getPixelRatio(), cap: s.cap, idle: s.idle, deep: s.deep, state: P.state, fps: +P.fps.toFixed(1), gpuMs: P.gpuMs == null ? null : +P.gpuMs.toFixed(1), busy: P.busy == null ? null : +P.busy.toFixed(2), renders: P.renders, timer: !!tq }; };
+  function govern(now) {
+    if (now - win.t0 < 2000) return;
+    const ms = now - win.t0; P.fps = win.n * 1000 / ms; P.gpuMs = win.gn ? win.gpu / win.gn : null; P.busy = win.gn ? win.gpu / ms : null;
+    if (P.mode === 'auto' && now - lastChange > 4000 && win.n >= 6) {
+      const l = preset().ladder, s = step(); let down = false, up = false;
+      if (P.gpuMs != null) {
+        down = P.gpuMs * s.cap / 1000 > BUDGET_DOWN;
+        const b = l[P.level - 1]; up = !!b && P.gpuMs * (b.scale / s.scale) ** 2 * b.cap / 1000 < BUDGET_UP;
+      } else down = win.active / win.n > 0.9 && P.fps < s.cap * 0.75; // no timer queries: only step down when animation can't hold the cap
+      goodWins = up ? goodWins + 1 : 0;
+      if (down && P.level < l.length - 1) { P.level++; lastChange = now; apply(); }
+      else if (up && goodWins >= 3) { P.level--; goodWins = 0; lastChange = now; apply(); }
+    }
+    o.onStats && o.onStats(P.info());
+    win = { t0: now, n: 0, gpu: 0, gn: 0, active: 0 };
+  }
+  // one rendered frame (GPU time measured with a timer query when the browser exposes one)
+  P.render = () => {
+    let q = null; if (tq && pend.length < 6) { q = gl.createQuery(); gl.beginQuery(tq.TIME_ELAPSED_EXT, q); }
+    o.draw(); P.renders++; win.n++; if (P.state === 'active') win.active++;
+    if (q) { gl.endQuery(tq.TIME_ELAPSED_EXT); pend.push(q); }
+    while (pend.length && gl.getQueryParameter(pend[0], gl.QUERY_RESULT_AVAILABLE)) {
+      const x = pend.shift(); if (!gl.getParameter(tq.GPU_DISJOINT_EXT)) { win.gpu += gl.getQueryParameter(x, gl.QUERY_RESULT) / 1e6; win.gn++; } gl.deleteQuery(x);
+    }
+  };
+  function run(now) {
+    raf = 0; if (document.hidden) return; raf = requestAnimationFrame(run);
+    if (o.busy()) lastActive = now;
+    const idleFor = now - lastActive, s = step();
+    P.state = idleFor < 1500 ? 'active' : idleFor < 30000 ? 'idle' : 'deep';
+    const interval = 1000 / (P.state === 'active' ? s.cap : P.state === 'idle' ? s.idle : s.deep);
+    acc = Math.min(acc + (lastTick ? now - lastTick : interval), interval * 2); lastTick = now;
+    if (acc < interval - 2) { govern(now); return; }
+    acc = Math.max(0, acc - interval);
+    const dt = lastRender ? Math.min(0.1, (now - lastRender) / 1000) : 1 / 60; lastRender = now;
+    fn(dt, now); govern(now);
+  }
+  P.loop = (f) => { fn = f; apply(); if (!raf) raf = requestAnimationFrame(run); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) return; lastTick = lastRender = 0; acc = 0; P.kick(); if (!raf && fn) raf = requestAnimationFrame(run); });
+  for (const ev of ['pointerdown', 'wheel', 'keydown']) addEventListener(ev, P.kick, { passive: true, capture: true });
+  if (o.controls) o.controls.addEventListener('change', P.kick);
+  return P;
+}
+
 /* ---------- composer / resize / loop ---------- */
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.45, 2.0); composer.addPass(bloom);
 composer.addPass(new OutputPass());
-function resize() { const w = stage.clientWidth || innerWidth, h = stage.clientHeight || innerHeight; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); if (!userMoved) { camera.position.copy(controls.target).addScaledVector(camOffset, Math.max(1, 1.55 / camera.aspect) ** 0.85); } pMat.uniforms.uScale.value = h * 1.5; drawChart(); }
+function resize() { const w = stage.clientWidth || innerWidth, h = stage.clientHeight || innerHeight; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); if (!userMoved) { camera.position.copy(controls.target).addScaledVector(camOffset, Math.max(1, 1.55 / camera.aspect) ** 0.85); } pMat.uniforms.uScale.value = h * 1.5 * renderer.getPixelRatio() / Math.min(devicePixelRatio, 2); drawChart(); if (perf) perf.kick(); }
 new ResizeObserver(resize).observe(stage); resize();
 
-let last = performance.now(), hudT = 0, frames = 0;
-function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt; frames++;
-  stepReplay(dt); stepCompact(dt); stepWater(dt); stepCards(dt); stepParticles(dt);
-  controls.update(); composer.render();
-  hudT += dt; if (hudT > 0.2) { hudT = 0; updateHud(); if (replay) drawChart(); }
-  requestAnimationFrame(frame);
+// something on screen still moves → render at the active cap (else idle / deep-idle rate; ambient waves keep going)
+function sceneBusy() {
+  if (V.compactAnim || replay || pAlive || Math.abs(V.target - V.level) > 4e-4) return true;
+  for (const r of ripples) if (clock - r.t0 < 4) return true;
+  for (const v of V.cards.values()) if (v.state !== 'rest') return true;
+  return false;
 }
-requestAnimationFrame(frame);
+function showPerf(i) {
+  const el = $('perfNote'); if (!el) return;
+  el.textContent = `畫質 ${i.name}${i.fromUrl ? '（網址指定）' : ''} · 解析度 ${Math.round(i.pixelRatio * 100)}% · 上限 ${i.cap}／靜止 ${i.idle} fps · 實測 ${i.fps.toFixed(0)} fps${i.gpuMs != null ? ` · GPU ${i.gpuMs.toFixed(1)} ms/幀` : ''}`;
+}
+let hudT = 0, frames = 0;
+// 自動/省電 "lite": the wooden table (largest surface, drawn again in the transmission pass) loses its clearcoat layer,
+// and the glass walls are drawn single-sided with the opacity of the two layers DoubleSide used to stack (1 − 0.9²).
+const tableFull = table.material; let tableLite = null;
+function applyLite(on) {
+  if (on && !tableLite) tableLite = new THREE.MeshStandardMaterial({ map: tableFull.map, roughness: 0.44 });
+  table.material = on ? tableLite : tableFull;
+  glassMat.side = on ? THREE.FrontSide : THREE.DoubleSide; glassMat.opacity = on ? 0.19 : 0.1; glassMat.needsUpdate = true;
+}
+perf = makePerf({ renderer, composer, controls, resize, draw: () => composer.render(), busy: sceneBusy, onStats: showPerf, onLite: applyLite });
+$('selQ').value = perf.mode; $('selQ').onchange = (e) => perf.setMode(e.target.value);
+function frame(dt) {
+  clock += dt; frames++;
+  stepReplay(dt); stepCompact(dt); stepWater(dt); stepCards(dt); stepParticles(dt);
+  controls.update(); renderer.shadowMap.needsUpdate = perf.state === 'active' || frames < 3; perf.render();
+  hudT += dt; if (hudT > 0.2) { hudT = 0; updateHud(); if (replay) drawChart(); }
+}
+perf.loop(frame);
 
 /* ---------- test hooks ---------- */
 window.__tank = {
   M, V, version: VERSION,
-  stats: () => ({ skillCards: M.cards.filter((c) => c.kind === 'skill').length, aliveSkill: M.cards.filter((c) => c.alive && c.kind === 'skill').length, summaries: M.cards.filter((c) => c.kind === 'summary' && c.alive).length, meshes: V.cards.size, meshSkill: [...V.cards.values()].filter((v) => v.card.kind === 'skill').length, level: V.level, target: V.target, ctx: M.ctx, limit: effLimit(), threshold: effThreshold(), compactions: M.compactions, events: M.events.length, applied: M.applied, compactAnim: !!V.compactAnim, frames, mode: M.mode, session: M.session && M.session.id }),
+  stats: () => ({ skillCards: M.cards.filter((c) => c.kind === 'skill').length, aliveSkill: M.cards.filter((c) => c.alive && c.kind === 'skill').length, summaries: M.cards.filter((c) => c.kind === 'summary' && c.alive).length, meshes: V.cards.size, meshSkill: [...V.cards.values()].filter((v) => v.card.kind === 'skill').length, level: V.level, target: V.target, ctx: M.ctx, limit: effLimit(), threshold: effThreshold(), compactions: M.compactions, events: M.events.length, applied: M.applied, compactAnim: !!V.compactAnim, frames, mode: M.mode, session: M.session && M.session.id, perf: perf.info() }),
+  perf,
   demo: { card: demoCard, water: demoWater, compact: demoCompact, auto: setAuto }, startReplay, stopReplay, seekTo, connect,
   tankRect: () => { const xs = [], ys = []; for (const x of [-1, 1]) for (const y of [0, RIM]) for (const z of [-1, 1]) { const q = worldToScreen(new THREE.Vector3(x * (IW / 2 + G), y, z * (ID / 2 + G))); xs.push(q.x); ys.push(q.y); } return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }; },
   deck: { D, lastDraw: () => lastDraw, rect: (name) => { const el = D.els.get(name); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, played: el.classList.contains('played'), drawing: el.classList.contains('drawing'), count: el.querySelector('.n').textContent }; }, stats: () => ({ deck: D.cards.length - D.cards.filter((c) => c.extra).length, extras: D.cards.filter((c) => c.extra).length, plays: D.plays, playedSlots: [...D.els.values()].filter((e) => e.classList.contains('played')).length, source: D.source, open: deckOpen(), ghosts: document.querySelectorAll('.ghost').length }) },

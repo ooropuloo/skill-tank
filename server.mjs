@@ -32,7 +32,7 @@ const ROOT = ROOTS[0];
 const EXTRA = (process.env.SKILL_TANK_EXTRA ?? path.join(HERE, 'test-data')).split(';').filter(Boolean);
 const IDLE_MIN = +(process.env.SKILL_TANK_IDLE_MIN || process.env.CONTEXT_TANK_IDLE_MIN || 120);
 const HOOK_EVENTS = ((v) => (v === '1' ? path.join(os.homedir(), '.claude', 'context-tank', 'events.jsonl') : v))(process.env.SKILL_TANK_HOOK_EVENTS || '');
-const VERSION = 'skill-tank server r4';
+const VERSION = 'skill-tank server r5';
 const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="11" rx="1" fill="#1aa6b8"/></svg>';
 
 function listSessions(limit = 60) {

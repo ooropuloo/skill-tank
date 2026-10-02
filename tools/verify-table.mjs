@@ -6,6 +6,7 @@
 //   4. demo mode (/table?demo): drop a card, overflow/compaction, drain
 //   5. phone 390×844 (touch): /table panel collapsed and clear of the tanks; / HUD has the link
 //   6. /tank/ → 302 /table, /favicon.ico 200, 0 console errors everywhere
+//   7. r5 render budget: ?quality= / select / localStorage shared by both pages, idle throttling, hidden tab renders nothing
 // env: SKILL_TANK_URL (default http://127.0.0.1:4700/), SKILL_TANK_ROOT (same as the server), SKILL_TANK_IDLE_MIN (120)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -61,8 +62,8 @@ const done = async (o, label) => { ok(o.errors.length === 0, `${label}: console 
   const r = await fetch(BASE + 'tank/', { redirect: 'manual' });
   ok(r.status === 302 && r.headers.get('location') === '/table', `/tank/ → ${r.status} ${r.headers.get('location')}`);
   const f = await fetch(BASE + 'favicon.ico'); ok(f.status === 200, `/favicon.ico ${f.status}`);
-  const h = await (await fetch(BASE + 'api/health')).json(); ok(/r4$/.test(h.version), `/api/health version "${h.version}"`);
-  const th = await (await fetch(BASE + 'table/health')).json(); ok(/r4$/.test(th.version), `/table/health version "${th.version}" (${th.sessions.length} sessions)`);
+  const h = await (await fetch(BASE + 'api/health')).json(); ok(/r5$/.test(h.version), `/api/health version "${h.version}"`);
+  const th = await (await fetch(BASE + 'table/health')).json(); ok(/r5$/.test(th.version), `/table/health version "${th.version}" (${th.sessions.length} sessions)`);
 }
 
 // ---------- 1. tanks == active sessions, levels == parser ----------
@@ -150,11 +151,11 @@ let SID0 = null;
   await o.p.waitForFunction(() => window.__ready === true, null, { timeout: 60000 }); await sleep(2500);
   const single = await o.p.evaluate(() => ({ sid: document.getElementById('hSid').textContent, link: document.getElementById('toTable').getAttribute('href'), linkVisible: !document.getElementById('toTable').hidden, ver: document.getElementById('ver').textContent }));
   ok(single.sid.includes(target.id) && single.linkVisible && single.link === '/table', `single view opened for ${target.id.slice(0, 8)} (hSid "${single.sid}"), link back "${single.link}"`);
-  ok(/r4$/.test(single.ver), `single view footer "${single.ver}"`);
+  ok(/r5$/.test(single.ver), `single view footer "${single.ver}"`);
   await o.p.screenshot({ path: path.join(SHOTS, 'table-03-single-from-table.png') });
   await Promise.all([o.p.waitForURL((u) => u.pathname === '/table', { timeout: 10000 }), o.p.click('#toTable')]);
   await o.p.waitForFunction(() => window.__ready === true, null, { timeout: 60000 });
-  const ver = await o.p.$eval('#ver', (e) => e.textContent); ok(/table build .* r4$/.test(ver), `back on /table, footer "${ver}"`);
+  const ver = await o.p.$eval('#ver', (e) => e.textContent); ok(/table build .* r5$/.test(ver), `back on /table, footer "${ver}"`);
   await done(o, 'live table');
 }
 
@@ -215,6 +216,38 @@ let SID0 = null;
   ok(lk.vis && lk.href === '/table' && lk.sw <= 390, `phone /: HUD link to /table visible (scrollWidth ${lk.sw})`);
   await o2.p.screenshot({ path: path.join(SHOTS, 'table-08-mobile-single.png') });
   await done(o2, 'phone single');
+}
+// ---------- 9. r5 render budget: quality setting (URL / localStorage), idle throttling, hidden-tab pause ----------
+{
+  const o = await open(BASE + 'table?demo&quality=low');
+  const q1 = await o.p.evaluate(() => ({ ...window.__table.perf.info(), sel: document.getElementById('selQ').value }));
+  ok(q1.mode === 'low' && q1.fromUrl && q1.sel === 'low' && q1.cap === 30 && Math.abs(q1.pixelRatio - 0.75) < 1e-6, `/table?quality=low → mode ${q1.mode} (url ${q1.fromUrl}), select ${q1.sel}, cap ${q1.cap} fps, pixelRatio ${q1.pixelRatio}`);
+  await o.p.selectOption('#selQ', 'high');
+  const st = await o.p.evaluate(() => ({ ls: localStorage.getItem('skilltank.quality'), mode: window.__table.perf.info().mode, pr: window.__table.perf.info().pixelRatio }));
+  ok(st.ls === 'high' && st.mode === 'high' && st.pr === Math.min(2, 1), `quality select → localStorage "${st.ls}", mode ${st.mode}, pixelRatio ${st.pr}`);
+  const p2 = await o.ctx.newPage(); p2.on('pageerror', (e) => o.errors.push('pageerror: ' + e.message));
+  await p2.goto(BASE + '?demo&still'); await p2.waitForFunction(() => window.__ready === true, null, { timeout: 60000 });
+  const q2 = await p2.evaluate(() => ({ ...window.__tank.perf.info(), sel: document.getElementById('selQ').value }));
+  ok(q2.mode === 'high' && !q2.fromUrl && q2.sel === 'high', `single view reads the stored setting: mode ${q2.mode}, select ${q2.sel}`);
+  await p2.selectOption('#selQ', 'auto'); await sleep(4000); // let the demo settle → idle
+  const rate = async (ms) => { const a = await p2.evaluate(() => window.__tank.perf.renders); await sleep(ms); return ((await p2.evaluate(() => window.__tank.perf.renders)) - a) * 1000 / ms; };
+  // idle window = 2 s in which the page never went active and the 自動 governor did not change level (it re-tunes on its own)
+  let idle = -1, qi = null;
+  for (let tries = 0; tries < 5 && idle < 0; tries++) {
+    const r = await p2.evaluate(() => new Promise((res) => { const P = window.__tank.perf; const i0 = P.info(); const n0 = P.renders; let clean = i0.state !== 'active';
+      const iv = setInterval(() => { const i = P.info(); if (i.state === 'active' || i.level !== i0.level) clean = false; }, 50);
+      setTimeout(() => { clearInterval(iv); res({ clean, n: P.renders - n0, info: P.info() }); }, 2000); }));
+    if (r.clean) { idle = r.n / 2; qi = r.info; } else await sleep(1500);
+  }
+  ok(qi && idle > 0 && idle <= qi.idle + 1, `idle: renders ${idle.toFixed(1)}/s (state ${qi && qi.state}, idle cap ${qi && qi.idle} fps)`);
+  await p2.evaluate(() => window.__tank.demo.card()); const act = await rate(1500); const qa = await p2.evaluate(() => window.__tank.perf.info());
+  ok(act > idle && act <= qa.cap + 3, `card thrown: renders ${act.toFixed(1)}/s (cap ${qa.cap} fps) > idle`);
+  await p2.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange')); });
+  await sleep(300); const hid = await rate(1500);
+  await p2.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, get: () => false }); document.dispatchEvent(new Event('visibilitychange')); });
+  const back = await rate(1500);
+  ok(hid === 0 && back > 0, `hidden tab: ${hid} renders/s; visible again: ${back.toFixed(1)}/s`);
+  await done(o, 'quality');
 }
 await b.close();
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASS');

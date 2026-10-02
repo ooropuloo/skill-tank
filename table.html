@@ -33,6 +33,9 @@ button{font:600 13px/1 var(--f-body);color:var(--card);background:rgba(0,0,0,.28
 button:hover{border-color:var(--gold);color:#fff}
 button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 button[aria-pressed="true"]{background:rgba(201,162,78,.25);border-color:var(--gold)}
+.q{display:inline-flex;align-items:center;gap:6px;font:600 12px/1 var(--f-body);color:#c8b393}
+.q select{font:600 13px/1 var(--f-body);color:var(--card);background:#2a1b12;border:1px solid rgba(242,233,211,.28);border-radius:8px;padding:7px 8px;cursor:pointer}
+.q select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 main{flex:1;position:relative;min-height:0}
 #gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -89,6 +92,7 @@ main{flex:1;position:relative;min-height:0}
   <a id="toSingle" class="nav" href="../" hidden title="單一 session 深入看：牌庫、context 曲線、回放">單一 session ↗</a>
   <div id="conn" class="pill wait"><i></i><span>連線中…</span></div>
   <div class="ctrls">
+    <label class="q" title="自動：依實測 GPU 負載調整 fps 上限與解析度；高：原始解析度、60 fps；省電：30 fps、75% 解析度。網址 ?quality=low|high|auto 可覆寫">畫質 <select id="selQ"><option value="auto">自動</option><option value="high">高</option><option value="low">省電</option></select></label>
     <button id="bFolder" type="button" hidden>開啟資料夾</button>
     <span id="demoCtrls" class="ctrls" hidden>
       <button id="bThrow" type="button">丟一張牌</button>
@@ -108,10 +112,11 @@ main{flex:1;position:relative;min-height:0}
       <div id="rows"></div>
       <div class="sub">出牌紀錄</div>
       <ol id="log"></ol>
+      <div class="keys" id="perfNote"></div>
       <div class="keys"><kbd>A</kbd>/<kbd>←</kbd> <kbd>D</kbd>/<kbd>→</kbd> 切換魚缸　<kbd>F</kbd> 鏡頭跟隨　拖曳旋轉、滾輪縮放<span class="demoOnly"><br><kbd>Space</kbd> 丟牌　<kbd>C</kbd> 壓縮　點手牌丟進目前的缸</span></div>
     </div>
   </section>
-  <div id="ver">skill-tank table build 2026-10-02 r4</div>
+  <div id="ver">skill-tank table build 2026-10-02 r5</div>
   <div id="hint" hidden>示範資料：沒有連上 Claude Code，畫面上的 session 與數字都是模擬的</div>
 </main>
 
@@ -138,10 +143,13 @@ const mobile=()=>innerWidth<760;
 
 // ---------------- renderer / scene (寫實光影) ----------------
 const canvas=document.getElementById('gl');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+// r5: no canvas MSAA / preserveDrawingBuffer (the scene is drawn through EffectComposer targets, which have no MSAA);
+// shadow maps re-render only while something moves (perf.state==='active')
+const renderer=new THREE.WebGLRenderer({canvas,antialias:false});
 renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
 renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
-renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate=false;
+let perf=null; // makePerf() below
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x07191a); scene.fog=new THREE.Fog(0x07191a,14,34);
 const pmrem=new THREE.PMREMGenerator(renderer); scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture; scene.environmentIntensity=0.55;
 const camera=new THREE.PerspectiveCamera(38,1,0.05,80); camera.position.set(0,3.4,6.9);
@@ -261,7 +269,7 @@ const focusSession=()=>S.sessions.get(S.order.filter(id=>S.sessions.has(id))[S.f
 
 // ---------------- events (same shape for JSONL lines and demo) ----------------
 function apply(ev,replay){
-  replay=replay||!!ev.snap; // snap = server snapshot of a tank (first sight / woke up): place, don't throw
+  if(perf)perf.kick();replay=replay||!!ev.snap; // snap = server snapshot of a tank (first sight / woke up): place, don't throw
   switch(ev.type){
     case 'deck': for(const d of ev.skills||ev.deck||[]){const e=deckEntry(d.name);Object.assign(e,{desc:d.desc,tokens:d.tokens,source:d.source})}handDirty=true;break;
     case 'session': {const s=session(ev.session,ev);if(ev.source==='clear'){clearCards(s);s.used=0}if(ev.snap){clearCards(s);s.compacts=ev.compacts||0}break}
@@ -335,7 +343,8 @@ function step(dt,t){
     let target=(s.used+s.pending)/s.size;
     if(s.phase){const a=t-s.phase.t0;
       if(s.phase.kind==='overflow'){target=lerp(Math.max(s.shown,target),1.07,clamp((a-.1)/.7));s.puddle=Math.max(s.puddle,clamp((a-.7)/1.3));
-        if(a>0.7&&a<2.2)for(let i=0;i<4;i++){const side=Math.random()<.5?-1:1;const alongX=Math.random()<.5;
+        if(a>0.7&&a<2.2)for(let i=0;i<4*dt*60;i++){ // 4 per 60 fps frame
+         const side=Math.random()<.5?-1:1;const alongX=Math.random()<.5;
           if(alongX)emit(drops,gx+side*(TW/2+0.03),TH-Math.random()*0.05,(Math.random()-.5)*TD,side*0.25,-0.2,0,1.2);else emit(drops,gx+(Math.random()-.5)*TW,TH,side*(TD/2+0.03),0,-0.2,side*0.25,1.2)}
         if(a>2.3){s.phase={kind:'drain',t0:t};for(const c of s.cards)c.fadeT=s.keep&&s.keep.has(c.d.name)?0:1;if(!s.gotStatus)s.used=s.postUsed!=null?s.postUsed:Math.min(s.used,Math.round(s.size*.16));s.pending=0}}
       else if(a>1.8){s.phase=null;if(s.keep)keepOnly(s);else{s.layers=[];while(s.cards.length>8){scene.remove(s.cards[0].mesh);s.cards.shift()}s.nCards=s.cards.length}}}
@@ -367,11 +376,19 @@ function step(dt,t){
     if(Math.random()<dt*(2+s.shown*4))emit(bubbles,gx+(Math.random()-.5)*(TW-.2),.06,(Math.random()-.5)*(TD-.2),0,.35+Math.random()*.25,0,(h-.06)/.45);
     if(s.ended&&t-s.ended>2.2)removeSession(s.id)}
   // particles
-  for(const P of[drops,bubbles]){const pos=P.pos,v=P.vel;for(let i=0;i<P.n;i++){if(P.life[i]<=0){pos[i*3+1]=-999;continue}P.life[i]-=dt;
+  dropsAlive=0;for(const P of[drops,bubbles]){const pos=P.pos,v=P.vel;for(let i=0;i<P.n;i++){if(P.life[i]<=0){pos[i*3+1]=-999;continue}P.life[i]-=dt;if(P===drops)dropsAlive++;
     if(P===drops)v[i*3+1]-=4.5*dt;pos[i*3]+=v[i*3]*dt;pos[i*3+1]+=v[i*3+1]*dt;pos[i*3+2]+=v[i*3+2]*dt;if(P===drops&&pos[i*3+1]<0.01){P.life[i]=0}}P.p.geometry.attributes.position.needsUpdate=true}
   // 鏡頭跟隨
   const fs=focusSession();if(fs&&S.follow){controls.target.x+= (fs.tank.grp.position.x-controls.target.x)*(1-Math.exp(-3*dt));}
 }
+let dropsAlive=0;
+// something besides the ambient fish / bubbles moves → render at the active cap
+function sceneBusy(){if(S.fly.length||handDirty||dropsAlive)return true;
+  for(const h of hand)if(Math.abs((S.hover===h.d?1:0)-h.lift)>.002)return true;
+  const fs=focusSession();if(fs&&S.follow&&Math.abs(fs.tank.grp.position.x-controls.target.x)>.002)return true;
+  for(const s of S.sessions.values()){if(s.phase||s.ended||s.ripples.length)return true;if(Math.abs((s.used+s.pending)/s.size-s.shown)>4e-4)return true;
+    if(Math.abs(s.targetX-s.tank.grp.position.x)>.002)return true;for(const c of s.cards)if(!c.settled||Math.abs(c.fadeT-c.fade)>.01)return true}
+  return false}
 function land(f,t){const s=f.s;s.pending+=f.d.tokens;const c=placeCard(s,f.d,false);c.lx=f.lx;c.lz=f.lz;c.ly=waterH(s);c.vy=-.9;
   s.ripples.push({x:f.lx,z:f.lz,t0:t,a:.06});const gx=s.tank.grp.position.x,h=waterH(s);
   for(let i=0;i<40;i++){const a=Math.random()*Math.PI*2,sp=.4+Math.random()*1.1;emit(drops,gx+f.lx,h,f.lz,Math.cos(a)*sp*.6,1.4+Math.random()*1.4,Math.sin(a)*sp*.4,1)}
@@ -419,7 +436,7 @@ controls.addEventListener('start',()=>{});
 
 // ---------------- resize (避免畫面被拉成蛋形：aspect 與 composer 一起更新) ----------------
 function resize(){const r=canvas.getBoundingClientRect();const w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);composer.setSize(w,h);bloom.setSize(w,h);
-  camera.aspect=w/h;camera.fov=w/h<0.9?52:38;camera.updateProjectionMatrix()}
+  camera.aspect=w/h;camera.fov=w/h<0.9?52:38;camera.updateProjectionMatrix();if(perf)perf.kick()}
 addEventListener('resize',resize);
 
 // ---------------- data: poll events.jsonl (http Range) or a picked folder ----------------
@@ -473,19 +490,107 @@ document.getElementById('bChat').onclick=()=>{for(const s of S.sessions.values()
 document.getElementById('bCompact').onclick=()=>{const s=focusSession();if(s)startCompact(s,'manual')};
 document.getElementById('bAuto').onclick=e=>{auto=!auto;e.currentTarget.setAttribute('aria-pressed',String(auto))};
 
+/* ---------- r5 perf: quality (自動/高/省電), fps cap, idle throttling, hidden-tab pause, GPU-budget governor ---------- */
+// Measured on an Intel UHD 630 at 2560×1300 (r4): the page rendered every vsync and kept the GPU at ~99%.
+// Rules: render only when the frame interval for the current state is due (active = something moves / the user
+// interacts; idle = only ambient motion; deep = 30 s of idle), never while the tab is hidden, and in 自動 step the
+// fps cap down first and the render scale last while the measured GPU time per frame × fps exceeds the budget.
+// Same block in index.html and table.html (both pages share the localStorage key).
+function makePerf(o) {
+  const PRESETS = {
+    high: { prCap: 2, tScale: 1, lite: false, ladder: [{ scale: 1, cap: 60, idle: 30, deep: 30 }] },
+    auto: { prCap: 1.5, tScale: 0.5, lite: true, ladder: [{ scale: 1, cap: 45, idle: 20, deep: 10 }, { scale: 1, cap: 30, idle: 15, deep: 8 }, { scale: 0.85, cap: 30, idle: 12, deep: 6 }, { scale: 0.75, cap: 30, idle: 10, deep: 5 }] },
+    low: { prCap: 1, tScale: 0.35, lite: true, ladder: [{ scale: 0.75, cap: 30, idle: 10, deep: 4 }] },
+  };
+  const NAMES = { auto: '自動', high: '高', low: '省電' };
+  const KEY = 'skilltank.quality', BUDGET_DOWN = 0.6, BUDGET_UP = 0.4;
+  const valid = (q) => q === 'auto' || q === 'high' || q === 'low';
+  const urlQ = new URLSearchParams(location.search).get('quality');
+  let stored = null; try { stored = localStorage.getItem(KEY); } catch {}
+  const P = { mode: valid(urlQ) ? urlQ : valid(stored) ? stored : 'auto', fromUrl: valid(urlQ), level: 0, renders: 0, state: 'active', fps: 0, gpuMs: null, busy: null, NAMES };
+  const gl = o.renderer.getContext(); let tq = null; try { tq = gl.getExtension('EXT_disjoint_timer_query_webgl2'); } catch {}
+  const pend = []; let win = { t0: performance.now(), n: 0, gpu: 0, gn: 0, active: 0 }, lastChange = performance.now(), goodWins = 0;
+  let lastActive = performance.now(), lastTick = 0, lastRender = 0, acc = 0, raf = 0, fn = null;
+  const preset = () => PRESETS[P.mode];
+  const step = () => { const l = preset().ladder; return l[Math.min(P.level, l.length - 1)]; };
+  P.lite = () => !!preset().lite; // cheaper stand-ins for the most expensive full-screen materials (page decides which)
+  P.pixelRatio = () => Math.min(devicePixelRatio || 1, preset().prCap) * step().scale;
+  function apply() {
+    const pr = P.pixelRatio();
+    if (Math.abs(o.renderer.getPixelRatio() - pr) > 1e-6) { o.renderer.setPixelRatio(pr); if (o.composer) o.composer.setPixelRatio(pr); o.resize(); }
+    if ('transmissionResolutionScale' in o.renderer) o.renderer.transmissionResolutionScale = preset().tScale;
+    o.onLite && o.onLite(P.lite());
+    o.onChange && o.onChange(P);
+  }
+  P.kick = () => { lastActive = performance.now(); };
+  P.setMode = (m, persist = true) => {
+    if (!valid(m)) return; P.mode = m; P.level = 0; goodWins = 0; lastChange = performance.now(); P.fromUrl = false;
+    if (persist) { try { localStorage.setItem(KEY, m); } catch {} }
+    apply(); P.kick();
+  };
+  P.info = () => { const s = step(); return { mode: P.mode, name: NAMES[P.mode], fromUrl: P.fromUrl, level: P.level, scale: s.scale, pixelRatio: o.renderer.getPixelRatio(), cap: s.cap, idle: s.idle, deep: s.deep, state: P.state, fps: +P.fps.toFixed(1), gpuMs: P.gpuMs == null ? null : +P.gpuMs.toFixed(1), busy: P.busy == null ? null : +P.busy.toFixed(2), renders: P.renders, timer: !!tq }; };
+  function govern(now) {
+    if (now - win.t0 < 2000) return;
+    const ms = now - win.t0; P.fps = win.n * 1000 / ms; P.gpuMs = win.gn ? win.gpu / win.gn : null; P.busy = win.gn ? win.gpu / ms : null;
+    if (P.mode === 'auto' && now - lastChange > 4000 && win.n >= 6) {
+      const l = preset().ladder, s = step(); let down = false, up = false;
+      if (P.gpuMs != null) {
+        down = P.gpuMs * s.cap / 1000 > BUDGET_DOWN;
+        const b = l[P.level - 1]; up = !!b && P.gpuMs * (b.scale / s.scale) ** 2 * b.cap / 1000 < BUDGET_UP;
+      } else down = win.active / win.n > 0.9 && P.fps < s.cap * 0.75; // no timer queries: only step down when animation can't hold the cap
+      goodWins = up ? goodWins + 1 : 0;
+      if (down && P.level < l.length - 1) { P.level++; lastChange = now; apply(); }
+      else if (up && goodWins >= 3) { P.level--; goodWins = 0; lastChange = now; apply(); }
+    }
+    o.onStats && o.onStats(P.info());
+    win = { t0: now, n: 0, gpu: 0, gn: 0, active: 0 };
+  }
+  // one rendered frame (GPU time measured with a timer query when the browser exposes one)
+  P.render = () => {
+    let q = null; if (tq && pend.length < 6) { q = gl.createQuery(); gl.beginQuery(tq.TIME_ELAPSED_EXT, q); }
+    o.draw(); P.renders++; win.n++; if (P.state === 'active') win.active++;
+    if (q) { gl.endQuery(tq.TIME_ELAPSED_EXT); pend.push(q); }
+    while (pend.length && gl.getQueryParameter(pend[0], gl.QUERY_RESULT_AVAILABLE)) {
+      const x = pend.shift(); if (!gl.getParameter(tq.GPU_DISJOINT_EXT)) { win.gpu += gl.getQueryParameter(x, gl.QUERY_RESULT) / 1e6; win.gn++; } gl.deleteQuery(x);
+    }
+  };
+  function run(now) {
+    raf = 0; if (document.hidden) return; raf = requestAnimationFrame(run);
+    if (o.busy()) lastActive = now;
+    const idleFor = now - lastActive, s = step();
+    P.state = idleFor < 1500 ? 'active' : idleFor < 30000 ? 'idle' : 'deep';
+    const interval = 1000 / (P.state === 'active' ? s.cap : P.state === 'idle' ? s.idle : s.deep);
+    acc = Math.min(acc + (lastTick ? now - lastTick : interval), interval * 2); lastTick = now;
+    if (acc < interval - 2) { govern(now); return; }
+    acc = Math.max(0, acc - interval);
+    const dt = lastRender ? Math.min(0.1, (now - lastRender) / 1000) : 1 / 60; lastRender = now;
+    fn(dt, now); govern(now);
+  }
+  P.loop = (f) => { fn = f; apply(); if (!raf) raf = requestAnimationFrame(run); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) return; lastTick = lastRender = 0; acc = 0; P.kick(); if (!raf && fn) raf = requestAnimationFrame(run); });
+  for (const ev of ['pointerdown', 'wheel', 'keydown']) addEventListener(ev, P.kick, { passive: true, capture: true });
+  if (o.controls) o.controls.addEventListener('change', P.kick);
+  return P;
+}
+
 // ---------------- boot ----------------
 resize();
 if(!FORCE_DEMO&&LIVE){setMode('wait','連線中…');pollHttp();pollDeckHttp()}
 else{startDemo();if(location.protocol==='file:'&&'showDirectoryPicker' in window){document.getElementById('bFolder').hidden=false}}
 let last=now(),frames=0;
-function frame(){const t=now(),dt=Math.min(.05,t-last);last=t;step(dt,t);controls.update();composer.render();updateLabels(t);if(t-(frame.rowsAt||0)>.25){frame.rowsAt=t;updateRows()}++frames;
-  if(frames===2)document.getElementById('loading').remove();requestAnimationFrame(frame)}
+const perfNote=document.getElementById('perfNote');
+// (no "lite" material swap here: a Lambert felt measured −6 ms but read visibly darker without the PBR environment light)
+perf=makePerf({renderer,composer,controls,resize,draw:()=>composer.render(),busy:sceneBusy,
+  onStats:i=>{perfNote.textContent=`畫質 ${i.name}${i.fromUrl?'（網址指定）':''} · 解析度 ${Math.round(i.pixelRatio*100)}% · 上限 ${i.cap}／靜止 ${i.idle} fps · 實測 ${i.fps.toFixed(0)} fps${i.gpuMs!=null?` · GPU ${i.gpuMs.toFixed(1)} ms/幀`:''}`}});
+const selQ=document.getElementById('selQ');selQ.value=perf.mode;selQ.onchange=e=>perf.setMode(e.target.value);
+function frame(dt){const t=now();last=t;step(dt,t);controls.update();renderer.shadowMap.needsUpdate=perf.state==='active'||frames<3;perf.render();updateLabels(t);if(t-(frame.rowsAt||0)>.25){frame.rowsAt=t;updateRows()}++frames;
+  if(frames===2)document.getElementById('loading').remove()}
 // test hook: advance the simulation deterministically in headless checks
 window.__advance=(sec)=>{const n=Math.round(sec*30);for(let i=0;i<n;i++){const t=last+1/30;step(1/30,t);last=t}};
-window.__table={stats:()=>({mode:S.mode,frames,fly:S.fly.length,deck:S.deck.length,focus:S.focus,sessions:S.order.filter(id=>S.sessions.has(id)).map(id=>{const s=S.sessions.get(id);
+window.__table={perf,stats:()=>({mode:S.mode,frames,perf:perf.info(),fly:S.fly.length,deck:S.deck.length,focus:S.focus,sessions:S.order.filter(id=>S.sessions.has(id)).map(id=>{const s=S.sessions.get(id);
   return{id,title:s.title,aiTitle:s.aiTitle,label:s.el&&s.el.tl.firstChild.firstChild.textContent,used:s.used,pending:s.pending,size:s.size,pct:(s.used+s.pending)/s.size,shown:s.shown,cards:s.nCards,meshes:s.cards.length,compactAt:s.compactAt,compacts:s.compacts,phase:s.phase&&s.phase.kind,ended:!!s.ended}})})};
 window.__ready=true;
-requestAnimationFrame(frame);
+perf.loop(frame);
 </script>
 </body>
 </html>

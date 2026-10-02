@@ -123,6 +123,17 @@ URL parameters for `/`: `?session=<id>` pin a session · `?demo` demo mode with 
 
 **This repo contains no skill list.** The deck is always built on your machine from your own skills.
 
+## Performance & quality
+
+A glass aquarium is expensive to draw (refraction means the scene is rendered twice), so skill-tank only spends GPU when something is happening:
+
+- It renders at full rate only while something moves — a card dropping, the water rising, an overflow, you dragging the camera. When only the gentle water ripples are left it slows down, and after 30 quiet seconds it slows down again.
+- A hidden browser tab draws nothing at all.
+- **Quality: Auto / High / Battery saver** — in the control panel (single session) or the header (table). Auto watches the real GPU time per frame and lowers the frame cap, then the resolution, before your machine starts to stutter. The choice is remembered for both views.
+- Override it for one visit with `?quality=high`, `?quality=auto` or `?quality=low`.
+
+On an integrated GPU (Intel UHD 630, 2560 px wide), another WebGL app kept running at 60 fps with both views open in Auto, versus 9 fps before this change. If you have a strong GPU, pick **High** for the sharpest glass and wood.
+
 ## Privacy
 
 - **Read-only.** The server only reads `~/.claude/projects` (and the `SKILL.md` files of your skills, for descriptions). It never writes there and never changes your settings.
