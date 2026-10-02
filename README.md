@@ -8,8 +8,8 @@
 
 <table>
 <tr>
-<td align="center" width="50%"><b>Single session</b> · <code>/</code><br><img src="docs/media/skill-tank-demo.gif" alt="Single-session view: a card is drawn from the deck and drops into one big tank; the water rises, overflows and compacts" width="100%"></td>
-<td align="center" width="50%"><b>Table — every session</b> · <code>/table</code><br><img src="docs/media/skill-tank-table.gif" alt="Table view: one tank per session on a card table; cards fly from the hand into different tanks and one tank overflows" width="100%"></td>
+<td align="center"><b>Single session</b> · <code>/</code><br><img src="docs/media/skill-tank-demo.gif" alt="Single-session view: a card is drawn from the deck and drops into one big tank; the water rises, overflows and compacts" width="420"></td>
+<td align="center"><b>Table — every session</b> · <code>/table</code><br><img src="docs/media/skill-tank-table.gif" alt="Table view: one tank per session on a card table; cards fly from the hand into different tanks and one tank overflows" width="420"></td>
 </tr>
 </table>
 
