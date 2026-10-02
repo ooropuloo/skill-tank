@@ -1,0 +1,1243 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Skill 水缸</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%222%22 y=%223%22 width=%2212%22 height=%2211%22 rx=%221%22 fill=%22%231aa6b8%22/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#07090d; --panel:rgba(12,17,24,.78); --panel-b:rgba(150,190,220,.16); --ink:#e6edf3; --mute:#8b9bab; --dim:#5a6878;
+  --teal:#3fd0d8; --warn:#ff7a2f; --hot:#ff3b26; --user:#45a8ff; --plugin:#b77bff; --project:#3ed08e; --command:#ffb22e; --summary:#f3d27a;
+  --mono:"Cascadia Mono","Consolas","SFMono-Regular",ui-monospace,monospace;
+  --sans:"Segoe UI","Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.45 var(--sans);overflow:hidden}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.panel{position:fixed;background:var(--panel);border:1px solid var(--panel-b);border-radius:12px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.ph{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;cursor:pointer;font-weight:600;letter-spacing:.02em;font-size:12px;color:var(--mute);text-transform:uppercase}
+.ph:focus-visible{outline:2px solid var(--teal);outline-offset:-2px;border-radius:12px}
+.ph .chev{margin-left:auto;transition:transform .2s}
+.ph[aria-expanded=false] .chev{transform:rotate(-90deg)}
+.pb{padding:0 12px 12px}
+.ph[aria-expanded=false]+.pb{display:none}
+#hud{left:14px;top:14px;width:318px;max-width:calc(100vw - 28px)}
+#hud .title{font-size:15px;font-weight:650;color:var(--ink);line-height:1.3;margin:2px 0 2px;word-break:break-word;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+#hud .title .proj{color:var(--teal);font-weight:600}#hud .title .sep{color:var(--dim);font-weight:400}
+#hud .sid{font:11px var(--mono);color:var(--dim);word-break:break-all}
+.gauge{display:flex;align-items:flex-end;gap:10px;margin:10px 0 6px}
+.gauge .pct{font:600 40px/1 var(--mono);letter-spacing:-.02em;color:var(--teal);transition:color .4s}
+.gauge .pct small{font-size:16px;color:var(--mute)}
+.gauge .side{font:11px/1.35 var(--mono);color:var(--mute);padding-bottom:3px}
+.bar{position:relative;height:8px;border-radius:5px;background:rgba(255,255,255,.07);overflow:visible;margin:4px 0 10px}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:linear-gradient(90deg,#1aa6b8,#3fd0d8);transition:width .6s,background .4s}
+.bar b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--hot);box-shadow:0 0 6px var(--hot)}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0;font-size:12px}
+dl.kv dt{color:var(--mute)} dl.kv dd{margin:0;text-align:right;font-family:var(--mono)}
+.warn-on .gauge .pct{color:var(--warn)}
+.hot-on .gauge .pct{color:var(--hot);animation:blink 0.8s steps(2) infinite}
+@keyframes blink{50%{opacity:.45}}
+#ctrl{right:14px;top:14px;width:300px;max-width:calc(100vw - 28px);max-height:calc(100vh - 150px);overflow:auto}
+.row{display:flex;gap:6px;align-items:center;margin:7px 0;flex-wrap:wrap}
+.row label{color:var(--mute);font-size:12px;min-width:56px}
+select,input[type=number],button.b{font:12px var(--sans);color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--panel-b);border-radius:7px;padding:5px 8px}
+select{flex:1;min-width:0}
+input[type=number]{width:90px}
+button.b{cursor:pointer}
+button.b:hover{background:rgba(255,255,255,.12)}
+button.b.on{background:rgba(63,208,216,.18);border-color:rgba(63,208,216,.5)}
+button.b:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.sw{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:12px;cursor:pointer}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:8px;font-size:11px;color:var(--mute)}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
+.note{font-size:11px;color:var(--dim);margin-top:6px}
+.badge{display:inline-block;font:600 10px var(--mono);padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.08);color:var(--mute);margin-left:6px;vertical-align:2px}
+.badge.live{background:rgba(62,208,142,.18);color:#5fe3a6}
+.badge.demo{background:rgba(255,178,46,.18);color:#ffc35e}
+.badge.err{background:rgba(255,59,38,.2);color:#ff8a7a}
+#chartP{left:14px;right:14px;bottom:30px;height:auto}
+#chart{display:block;width:100%;height:74px;cursor:crosshair}
+#chartP .pb{padding:0 10px 8px}
+#tip{position:fixed;z-index:20;pointer-events:none;width:300px;max-width:calc(100vw - 20px);background:rgba(10,14,20,.94);border:1px solid var(--panel-b);border-radius:10px;padding:10px 12px;display:none;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#tip.pinned{pointer-events:auto}
+#tip h4{margin:0 0 2px;font-size:14px}
+#tip .cat{font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+#tip p{margin:6px 0;color:#c7d2dc;font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto}
+#tip dl{grid-template-columns:auto 1fr}
+#toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:rgba(255,59,38,.9);color:#fff;padding:6px 14px;border-radius:8px;font-weight:600;display:none;z-index:30}
+#hud .navlink{display:inline-block;margin-top:6px;font-size:12px;color:var(--teal);text-decoration:none;border:1px solid rgba(63,208,216,.35);border-radius:7px;padding:3px 8px}
+#hud .navlink:hover{background:rgba(63,208,216,.12)}#hud .navlink[hidden]{display:none}
+#ver{position:fixed;right:12px;bottom:8px;font:10.5px var(--mono);color:var(--dim);z-index:5;pointer-events:none}
+#hint{position:fixed;left:14px;bottom:8px;font-size:10.5px;color:var(--dim);z-index:5;pointer-events:none}
+/* right column: control panel on top, deck (牌庫) fills the rest down to the chart */
+#rightCol{position:fixed;right:14px;top:14px;bottom:var(--rcBottom,160px);width:320px;max-width:calc(100vw - 28px);display:flex;flex-direction:column;gap:10px;pointer-events:none;z-index:4}
+#rightCol>.panel{position:relative;pointer-events:auto;inset:auto;width:auto;max-width:none}
+#rightCol>#ctrl{flex:0 0 auto;max-height:46%;overflow:auto}
+#deck{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+#deck>.ph[aria-expanded=false]{flex:0 0 auto}
+#deck:has(>.ph[aria-expanded=false]){flex:0 0 auto}
+#deck .ph{text-transform:none;color:var(--ink);font-size:13px;letter-spacing:0}
+#deck .ph .dk-sub{font:600 11px var(--mono);color:var(--mute)}
+#deck>.pb{display:flex;flex-direction:column;min-height:0;flex:1 1 auto;padding:0 10px 10px}
+#deck>.ph[aria-expanded=false]+.pb{display:none}
+.pile{position:relative;width:22px;height:28px;flex:0 0 22px}
+.pile i{position:absolute;inset:0;border-radius:4px;background:linear-gradient(135deg,#c7b07a,#13233a 40%,#0a1220);border:1px solid #c7b07a;box-shadow:0 1px 2px rgba(0,0,0,.5)}
+.pile i:nth-child(1){transform:translate(-3px,3px) rotate(-8deg);opacity:.6}
+.pile i:nth-child(2){transform:translate(-1.5px,1.5px) rotate(-3deg);opacity:.8}
+.dk-tools{display:flex;gap:6px;align-items:center;margin:0 0 6px}
+.dk-tools input[type=search]{flex:1;min-width:0;font:12px var(--sans);color:var(--ink);background:rgba(255,255,255,.06);border:1px solid var(--panel-b);border-radius:7px;padding:5px 8px}
+.dk-tools input[type=search]:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.dk-chips{display:flex;flex-wrap:nowrap;gap:4px;margin:0 0 6px;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}
+.dk-chips::-webkit-scrollbar{display:none}
+.dk-chips button{all:unset;flex:0 0 auto;white-space:nowrap;cursor:pointer;font:600 10.5px var(--mono);padding:3px 7px;border-radius:999px;border:1px solid var(--panel-b);color:var(--mute);background:rgba(255,255,255,.04)}
+.dk-chips button::before{content:"";display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px;background:var(--c,#8b9bab);vertical-align:0}
+.dk-chips button[aria-pressed=true]{color:var(--ink);border-color:rgba(63,208,216,.55);background:rgba(63,208,216,.14)}
+.dk-chips button:focus-visible{outline:2px solid var(--teal)}
+.dk-list{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:2px;-webkit-overflow-scrolling:touch}
+.dk-group h5{position:sticky;top:0;z-index:1;margin:0;padding:5px 2px 4px;font:700 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--c);background:linear-gradient(rgba(12,17,24,.97) 70%,rgba(12,17,24,0))}
+.dk-group h5 span{color:var(--dim);font-weight:600;margin-left:6px}
+.dk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;padding:2px 0 8px}
+.dk-empty{color:var(--dim);font-size:12px;padding:12px 2px}
+.mc[hidden],.dk-group[hidden]{display:none}
+/* mini card: same language as the 3D card face (category gradient frame, dark body, colored ribbon) */
+.mc{all:unset;box-sizing:border-box;position:relative;display:block;aspect-ratio:5/7;border-radius:7px;padding:2px;cursor:pointer;
+  background:linear-gradient(135deg,var(--c),#f6f2e8 52%,var(--c2));box-shadow:0 2px 6px rgba(0,0,0,.45);transition:transform .15s,filter .3s,opacity .3s}
+.mc>b{position:absolute;inset:2px;border-radius:5px;background:#10151c;overflow:hidden;display:flex;flex-direction:column}
+.mc .rb{flex:0 0 auto;margin:3px 3px 0;height:11px;border-radius:3px;background:var(--c);font:800 7px/11px var(--sans);color:rgba(0,0,0,.72);padding:0 3px;letter-spacing:.03em;white-space:nowrap;overflow:hidden}
+.mc .gl{flex:0 0 auto;margin:4px auto 2px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:800 11px/1 Georgia,serif;color:#fff;
+  background:radial-gradient(circle,color-mix(in srgb,var(--c) 70%,transparent),transparent 72%);text-shadow:0 0 6px var(--c)}
+.mc .nm{flex:1 1 auto;padding:0 4px 3px;font:600 9px/1.2 var(--sans);color:#e6edf3;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;text-align:center}
+.mc .n{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#f3d27a;color:#2a1d08;font:800 10px/17px var(--mono);text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.6);display:none;z-index:2}
+.mc.played>b{filter:saturate(.35) brightness(.55)}
+.mc.played{background:linear-gradient(135deg,color-mix(in srgb,var(--c) 45%,#222),#5a5a52 52%,#222)}
+.mc.played .n{display:block}
+.mc.extra::after{content:"清單外";position:absolute;left:3px;bottom:-4px;font:700 8px var(--sans);background:#ff7a2f;color:#fff;border-radius:3px;padding:0 3px}
+.mc.drawing{visibility:hidden}
+.mc.slot{outline:1.5px dashed rgba(243,210,122,.8);outline-offset:-1px}
+.mc:hover{transform:translateY(-3px)}
+.mc:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.mc.fresh{animation:fresh 1.6s ease-out 2}
+@keyframes fresh{0%{box-shadow:0 0 0 0 rgba(63,208,216,.9)}100%{box-shadow:0 0 0 10px rgba(63,208,216,0)}}
+/* the card being drawn out of the deck (DOM half of the hand-off; the 3D card takes over where it ends) */
+.ghost{position:fixed;z-index:25;pointer-events:none;margin:0;transform-origin:50% 50%;will-change:transform,opacity;box-shadow:0 10px 30px rgba(0,0,0,.6),0 0 18px color-mix(in srgb,var(--c) 70%,transparent)}
+.ghost:hover{transform:none}
+#deckTipNote{color:var(--dim);font-size:11px}
+@media (max-width:900px),(max-height:560px){
+  #hud{width:250px} #rightCol{width:260px}
+  .gauge .pct{font-size:30px}
+  #chartP{bottom:24px} #chart{height:56px}
+  #hint{display:none}
+}
+@media (max-width:600px){
+  /* phone: control panel above the chart; deck = collapsible bottom drawer (collapsed: handle + "牌庫 N 張") */
+  #rightCol{display:contents}
+  #rightCol>#ctrl{position:fixed;top:auto;bottom:168px;right:10px;left:10px;width:auto;max-height:50vh;overflow:auto}
+  #hud{left:10px;top:10px;width:calc(100vw - 20px)}
+  #chartP{left:10px;right:10px;bottom:64px}
+  #rightCol>#deck{position:fixed;left:0;right:0;bottom:0;z-index:15;border-radius:16px 16px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}
+  #deck>.ph{padding:14px 16px 10px;position:relative}
+  #deck>.ph::before{content:"";position:absolute;left:50%;top:5px;width:38px;height:4px;margin-left:-19px;border-radius:2px;background:rgba(255,255,255,.28)}
+  #deck>.pb{height:44vh}
+  #ver{bottom:50px}
+  .dk-grid{grid-template-columns:repeat(auto-fill,minmax(68px,1fr))}
+  body.deck-open #chartP,body.deck-open #ctrl{display:none}
+  body.deck-open #ver{display:none}
+}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<section id="hud" class="panel" aria-label="Session 狀態">
+  <button class="ph" aria-expanded="true" data-k="hud">Context 水缸 <span id="modeBadge" class="badge">…</span><span id="hMini" class="badge"></span><span class="chev">▾</span></button>
+  <div class="pb">
+    <div class="title" id="hTitle">載入中…</div>
+    <div class="sid" id="hSid"></div>
+    <a id="toTable" class="navlink" href="/table" title="全部活躍 session 一桌看（每個 session 一個缸）">全部 session 牌桌 ↗</a>
+    <div class="gauge"><div class="pct" id="hPct">0<small>%</small></div><div class="side" id="hSide"></div></div>
+    <div class="bar"><i id="hBar"></i><b id="hThr"></b></div>
+    <dl class="kv">
+      <dt>模型</dt><dd id="hModel">-</dd>
+      <dt>已用 / 上限</dt><dd id="hUsed">-</dd>
+      <dt>剩餘</dt><dd id="hLeft">-</dd>
+      <dt>距自動壓縮</dt><dd id="hToCompact">-</dd>
+      <dt>Skill 牌（水中 / 累計）</dt><dd id="hSkills">-</dd>
+      <dt>壓縮次數</dt><dd id="hComp">0</dd>
+    </dl>
+  </div>
+</section>
+
+<div id="rightCol">
+<section id="ctrl" class="panel" aria-label="控制">
+  <button class="ph" aria-expanded="true" data-k="ctrl">控制 <span class="chev">▾</span></button>
+  <div class="pb">
+    <div id="liveCtl">
+      <div class="row"><label for="selSess">Session</label><select id="selSess"></select></div>
+      <div class="row"><label class="sw"><input type="checkbox" id="follow" checked> 跟隨最新（自動切到最近修改的 session）</label></div>
+    </div>
+    <div class="row"><label for="selLimit">上限</label><select id="selLimit"><option value="auto">自動</option><option value="200000">200K</option><option value="1000000">1M</option><option value="custom">自訂…</option></select><input type="number" id="limCustom" min="1000" step="1000" placeholder="tokens" hidden></div>
+    <div class="row"><label for="selThr">壓縮線</label><select id="selThr"><option value="auto">自動（上限 − 33K）</option><option value="0.8">80%</option><option value="0.9">90%</option><option value="0.92">92%</option><option value="0.95">95%</option></select></div>
+    <div class="row"><label>回放</label><button class="b" id="btnReplay">⟲ 從頭回放</button><select id="selSpeed" style="flex:0 0 70px"><option>1</option><option selected>2</option><option>4</option><option>8</option><option>16</option></select><button class="b" id="btnStop" hidden>■ 停</button></div>
+    <div id="demoCtl">
+      <div class="row"><label>示範</label><button class="b" id="dCard" title="從牌庫隨機抽一張丟進缸（也可以直接點牌庫裡的牌）">隨機抽一張</button><button class="b" id="dWater">加水 +6%</button><button class="b" id="dComp">觸發壓縮</button></div>
+      <div class="row"><label></label><button class="b" id="dAuto">▶ 自動播放</button><button class="b" id="dReset">清空</button></div>
+    </div>
+    <div class="legend"><span style="--c:var(--user)">user skill</span><span style="--c:var(--plugin)">plugin skill</span><span style="--c:var(--project)">project skill</span><span style="--c:var(--command)">slash command</span><span style="--c:#9aa7b4">built-in</span><span style="--c:var(--summary)">壓縮摘要卡</span></div>
+    <div class="note" id="note"></div>
+  </div>
+</section>
+
+<section id="deck" class="panel" aria-label="牌庫">
+  <button class="ph" aria-expanded="true" aria-controls="deckBody" data-k="deck"><span class="pile" id="deckPile" aria-hidden="true"><i></i><i></i><i></i></span><span id="deckTitle">牌庫</span> <span class="dk-sub" id="deckSub"></span><span class="chev">▾</span></button>
+  <div class="pb" id="deckBody">
+    <div class="dk-tools"><input type="search" id="deckQ" placeholder="搜尋 skill 名稱或描述…" aria-label="搜尋牌庫" autocomplete="off"><label class="sw" title="只顯示已出過的牌"><input type="checkbox" id="deckPlayed"> 已出</label></div>
+    <div class="dk-chips" id="deckChips" role="group" aria-label="類別篩選"></div>
+    <div class="dk-list" id="deckList"></div>
+    <div class="note" id="deckNote"></div>
+  </div>
+</section>
+</div>
+
+<section id="chartP" class="panel" aria-label="Context 曲線">
+  <button class="ph" aria-expanded="true" data-k="chart">Context 曲線 · 點一下從該時刻開始回放 <span class="chev">▾</span></button>
+  <div class="pb"><canvas id="chart"></canvas></div>
+</section>
+
+<div id="tip" role="tooltip"></div>
+<div id="toast">⚠ 自動壓縮</div>
+<div id="hint">拖曳旋轉 · 滾輪縮放 · 滑過/點擊卡牌看詳情</div>
+<div id="ver">skill-tank build 2026-10-02 r4</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const VERSION = 'skill-tank build 2026-10-02 r4';
+const Q = new URLSearchParams(location.search);
+const DEMO_ONLY = !!window.SKILL_TANK_DEMO_ONLY;
+const $ = (id) => document.getElementById(id);
+const lsGet = (k, d) => { try { const v = localStorage.getItem('skilltank.' + k); return v == null ? d : v; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem('skilltank.' + k, v); } catch {} };
+const fmtK = (n) => n == null || isNaN(n) ? '-' : Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.abs(n) >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(Math.round(n));
+const fmtTime = (t) => { if (!t) return '-'; const d = new Date(t); return isNaN(d) ? '-' : d.toLocaleString('zh-TW', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }); };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+const rng = (seed) => () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+const CAT = {
+  user: { label: 'USER SKILL', zh: 'user skill', c: '#45a8ff', c2: '#1b4f8a' },
+  plugin: { label: 'PLUGIN SKILL', zh: 'plugin skill', c: '#b77bff', c2: '#4f2a86' },
+  project: { label: 'PROJECT SKILL', zh: 'project skill', c: '#3ed08e', c2: '#16603f' },
+  command: { label: 'SLASH COMMAND', zh: 'slash command', c: '#ffb22e', c2: '#7a4a07' },
+  builtin: { label: 'BUILT-IN', zh: 'built-in', c: '#9aa7b4', c2: '#3b4652' },
+  summary: { label: 'COMPACT SUMMARY', zh: '壓縮摘要', c: '#f3d27a', c2: '#6b4e12' },
+};
+
+/* ---------- collapsible panels ---------- */
+const small = matchMedia('(max-width:900px),(max-height:560px)').matches;
+document.querySelectorAll('.ph').forEach((b) => {
+  const k = b.dataset.k; const def = small ? (k === 'chart' ? 'true' : 'false') : 'true';
+  b.setAttribute('aria-expanded', lsGet('panel.' + k, def));
+  b.addEventListener('click', () => { const v = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(v)); lsSet('panel.' + k, String(v)); requestAnimationFrame(drawChart); });
+});
+
+/* ---------- renderer / scene ---------- */
+const stage = $('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.84;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = (() => { const c = document.createElement('canvas'); c.width = 16; c.height = 256; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#05070a'); gr.addColorStop(0.55, '#0d1622'); gr.addColorStop(1, '#07090d'); g.fillStyle = gr; g.fillRect(0, 0, 16, 256); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+scene.fog = new THREE.Fog(0x07090d, 14, 30);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(38, 1, 0.05, 80);
+camera.position.set(0, 5.5, 5.5);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.95, 0); controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.49; controls.minDistance = 2.5; controls.maxDistance = 16;
+if (Q.get('cam')) { const v = Q.get('cam').split(',').map(Number); if (v.length >= 6) { camera.position.set(v[0], v[1], v[2]); controls.target.set(v[3], v[4], v[5]); } }
+const camOffset = camera.position.clone().sub(controls.target); let userMoved = Q.has('cam');
+controls.addEventListener('start', () => { userMoved = true; });
+controls.maxDistance = 30;
+controls.update();
+
+const key = new THREE.DirectionalLight(0xfff1e0, 2.4); key.position.set(4.5, 9, 5.5); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 5; key.shadow.bias = -0.0004;
+Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 25 }); scene.add(key);
+const rim = new THREE.DirectionalLight(0x6fa8ff, 1.3); rim.position.set(-6, 4, -7); scene.add(rim);
+const fill = new THREE.DirectionalLight(0xffc89a, 0.35); fill.position.set(-5, 2.5, 5); scene.add(fill);
+const lamp = new THREE.SpotLight(0xbfe9ff, 12, 9, 0.62, 0.55, 1.6); lamp.position.set(0, 5.4, 0.2); lamp.target.position.set(0, 0, 0); scene.add(lamp, lamp.target);
+scene.add(new THREE.HemisphereLight(0x8fb4d8, 0x1a1410, 0.25));
+
+/* ---------- geometry constants ---------- */
+const IW = 3.3, ID = 2.0, H = 2.2, G = 0.045, BASE = 0.12;
+const FLOOR = BASE + G;        // inner floor
+const RIM = FLOOR + H;         // top of glass
+const CW = 0.48, CH = 0.67;    // card size
+
+/* ---------- table ---------- */
+function woodTexture() {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const g = c.getContext('2d');
+  g.fillStyle = '#3a2516'; g.fillRect(0, 0, 1024, 512);
+  const r = rng(7);
+  for (let i = 0; i < 260; i++) {
+    const y = r() * 512; g.strokeStyle = `rgba(${r() < .5 ? '20,10,4' : '90,60,36'},${0.08 + r() * 0.18})`; g.lineWidth = 0.6 + r() * 2.4;
+    g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= 1024; x += 32) g.lineTo(x, y + Math.sin(x * 0.006 + i) * 6 + (r() - .5) * 2); g.stroke();
+  }
+  for (let i = 0; i < 9; i++) { const x = r() * 1024, y = r() * 512; const gr = g.createRadialGradient(x, y, 2, x, y, 30 + r() * 30); gr.addColorStop(0, 'rgba(20,10,4,.5)'); gr.addColorStop(1, 'rgba(20,10,4,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, 60, 14, 0, 0, 7); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); t.anisotropy = 8; return t;
+}
+const table = new THREE.Mesh(new THREE.BoxGeometry(16, 0.4, 10), new THREE.MeshPhysicalMaterial({ map: woodTexture(), roughness: 0.48, clearcoat: 0.35, clearcoatRoughness: 0.35 }));
+table.position.y = -0.2; table.receiveShadow = true; scene.add(table);
+
+/* ---------- tank ---------- */
+const tank = new THREE.Group(); scene.add(tank);
+const metal = new THREE.MeshPhysicalMaterial({ color: 0x15181c, metalness: 0.65, roughness: 0.32, clearcoat: 0.6 });
+const base = new THREE.Mesh(new THREE.BoxGeometry(IW + 2 * G + 0.12, BASE, ID + 2 * G + 0.12), metal);
+base.position.y = BASE / 2; base.castShadow = base.receiveShadow = true; tank.add(base);
+const topRim = new THREE.Group(); tank.add(topRim);
+for (const [w, d, x, z] of [[IW + 2 * G + 0.06, 0.05, 0, ID / 2 + G], [IW + 2 * G + 0.06, 0.05, 0, -ID / 2 - G], [0.05, ID + 2 * G, IW / 2 + G, 0], [0.05, ID + 2 * G, -IW / 2 - G, 0]]) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), metal); m.position.set(x, RIM + 0.012, z); m.castShadow = true; topRim.add(m);
+}
+// floor of the tank: dark slate gravel-ish
+function slateTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d'); g.fillStyle = '#1b2228'; g.fillRect(0, 0, 512, 512);
+  const r = rng(3); for (let i = 0; i < 2600; i++) { const s = 1 + r() * 4; g.fillStyle = `rgba(${150 + r() * 80},${160 + r() * 70},${170 + r() * 60},${0.04 + r() * 0.08})`; g.beginPath(); g.arc(r() * 512, r() * 512, s, 0, 7); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 2); return t;
+}
+const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(IW, ID), new THREE.MeshStandardMaterial({ map: slateTexture(), roughness: 0.9 }));
+floorMesh.rotation.x = -Math.PI / 2; floorMesh.position.y = FLOOR + 0.001; floorMesh.receiveShadow = true; tank.add(floorMesh);
+// caustics on the floor (additive, animated)
+function causticTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, 256, 256);
+  const r = rng(11); g.lineCap = 'round';
+  for (let i = 0; i < 70; i++) { g.strokeStyle = `rgba(160,230,255,${0.12 + r() * 0.25})`; g.lineWidth = 1 + r() * 2.5; g.beginPath(); let x = r() * 256, y = r() * 256; g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (r() - .5) * 70; y += (r() - .5) * 70; g.quadraticCurveTo(x + (r() - .5) * 40, y + (r() - .5) * 40, x, y); } g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 2); return t;
+}
+const causticMat = new THREE.MeshBasicMaterial({ map: causticTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.0 });
+const caustic = new THREE.Mesh(new THREE.PlaneGeometry(IW, ID), causticMat); caustic.rotation.x = -Math.PI / 2; caustic.position.y = FLOOR + 0.004; tank.add(caustic);
+const caustic2 = caustic.clone(); caustic2.material = causticMat.clone(); caustic2.material.map = causticMat.map.clone(); caustic2.material.map.repeat.set(2.2, 1.6); caustic2.position.y += 0.001; tank.add(caustic2);
+
+// glass: thin walls = transparent physical (so the transmissive water stays visible through them),
+// thick corner posts = transmission glass (the green-ish edge of real aquarium glass).
+const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x0c1716, metalness: 0, roughness: 0.04, transparent: true, opacity: 0.1, clearcoat: 0.5, clearcoatRoughness: 0.03, envMapIntensity: 1.4, ior: 1.5, specularIntensity: 1, depthWrite: false, side: THREE.DoubleSide });
+const edgeMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 1, thickness: 0.6, ior: 1.52, roughness: 0.02, attenuationColor: new THREE.Color(0x7fd6b8), attenuationDistance: 0.35, envMapIntensity: 1.5 });
+const walls = new THREE.Group(); tank.add(walls);
+const addWall = (w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), glassMat); m.position.set(x, y, z); m.renderOrder = 5; walls.add(m); return m; };
+addWall(IW + 2 * G, H, G, 0, FLOOR + H / 2, ID / 2 + G / 2);
+addWall(IW + 2 * G, H, G, 0, FLOOR + H / 2, -ID / 2 - G / 2);
+addWall(G, H, ID, IW / 2 + G / 2, FLOOR + H / 2, 0);
+addWall(G, H, ID, -IW / 2 - G / 2, FLOOR + H / 2, 0);
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(G * 1.05, H, G * 1.05), edgeMat); p.position.set(sx * (IW / 2 + G / 2), FLOOR + H / 2, sz * (ID / 2 + G / 2)); walls.add(p); }
+const glassBottom = new THREE.Mesh(new THREE.BoxGeometry(IW + 2 * G, G, ID + 2 * G), edgeMat); glassBottom.position.y = BASE + G / 2; tank.add(glassBottom);
+
+// brass name plate on the base
+function plateTexture() {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 64; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 64); gr.addColorStop(0, '#c9a65a'); gr.addColorStop(.5, '#f1d996'); gr.addColorStop(1, '#8a6a2a'); g.fillStyle = gr; g.fillRect(0, 0, 1024, 64);
+  g.fillStyle = '#2a1d08'; g.font = '600 34px "Segoe UI",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SKILL TANK  ·  CONTEXT WINDOW', 512, 34);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.094), new THREE.MeshPhysicalMaterial({ map: plateTexture(), metalness: 0.7, roughness: 0.3 }));
+plate.position.set(0, BASE / 2, ID / 2 + G + 0.0605); tank.add(plate);
+
+/* ---------- water ---------- */
+const TEAL = new THREE.Color(0x0f9fb5), AMBER = new THREE.Color(0xff9b3d), RED = new THREE.Color(0xff3b1f);
+const waterMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.05, transmission: 1, ior: 1.333, thickness: 1.6, attenuationColor: TEAL.clone(), attenuationDistance: 3.2, specularIntensity: 1, envMapIntensity: 0.8 });
+const hidden = new THREE.MeshBasicMaterial({ visible: false });
+const waterBody = new THREE.Mesh(new THREE.BoxGeometry(IW - 0.004, 1, ID - 0.004).translate(0, 0.5, 0), [waterMat, waterMat, hidden, hidden, waterMat, waterMat]);
+waterBody.position.y = FLOOR; tank.add(waterBody);
+const surfGeo = new THREE.PlaneGeometry(IW - 0.004, ID - 0.004, 96, 58).rotateX(-Math.PI / 2);
+// Surface gets its own thin-refraction material: sharing the body's thickness 1.6 made the waves
+// refract so far that the top view sampled the wooden table → water read as opaque red-brown.
+const surfMat = waterMat.clone(); surfMat.thickness = 0.22; surfMat.attenuationColor = waterMat.attenuationColor; // same Color object → tint stays in sync
+const surf = new THREE.Mesh(surfGeo, surfMat); tank.add(surf);
+const surfBase = surfGeo.attributes.position.array.slice();
+
+// auto-compact warning line (emissive → blooms) + label + scale ruler on the glass
+const lineMat = new THREE.MeshStandardMaterial({ color: 0x220800, emissive: 0xff4a1c, emissiveIntensity: 3.2, roughness: 0.4 });
+const warnLine = new THREE.Group(); tank.add(warnLine);
+for (const [w, d, x, z] of [[IW + 2 * G + 0.01, 0.006, 0, ID / 2 + G + 0.004], [IW + 2 * G + 0.01, 0.006, 0, -ID / 2 - G - 0.004], [0.006, ID + 2 * G, IW / 2 + G + 0.004, 0], [0.006, ID + 2 * G, -IW / 2 - G - 0.004, 0]]) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.018, d), lineMat); m.position.set(x, 0, z); warnLine.add(m);
+}
+const labelCanvas = document.createElement('canvas'); labelCanvas.width = 1024; labelCanvas.height = 96;
+const labelTex = new THREE.CanvasTexture(labelCanvas); labelTex.colorSpace = THREE.SRGBColorSpace;
+const label = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.15), new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, depthWrite: false, toneMapped: false }));
+label.position.set(-IW / 2 + 0.85, -0.1, ID / 2 + G + 0.008); label.renderOrder = 10; warnLine.add(label);
+const rulerCanvas = document.createElement('canvas'); rulerCanvas.width = 128; rulerCanvas.height = 1024;
+const rulerTex = new THREE.CanvasTexture(rulerCanvas); rulerTex.colorSpace = THREE.SRGBColorSpace;
+const ruler = new THREE.Mesh(new THREE.PlaneGeometry(0.28, H), new THREE.MeshBasicMaterial({ map: rulerTex, transparent: true, depthWrite: false, opacity: 0.85 }));
+ruler.position.set(IW / 2 - 0.12, FLOOR + H / 2, ID / 2 + G + 0.006); ruler.renderOrder = 10; tank.add(ruler);
+
+function drawLabels() {
+  const lim = effLimit(), thr = effThreshold();
+  let g = labelCanvas.getContext('2d'); g.clearRect(0, 0, 1024, 96);
+  g.fillStyle = '#ff6a3a'; g.font = '700 46px "Segoe UI",sans-serif'; g.textBaseline = 'middle'; g.lineWidth = 8; g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineJoin = 'round';
+  g.strokeText(`AUTO-COMPACT  ${fmtK(thr)}  ·  ${(thr / lim * 100).toFixed(1)}%`, 8, 50); g.fillText(`AUTO-COMPACT  ${fmtK(thr)}  ·  ${(thr / lim * 100).toFixed(1)}%`, 8, 50); labelTex.needsUpdate = true;
+  g = rulerCanvas.getContext('2d'); g.clearRect(0, 0, 128, 1024);
+  g.strokeStyle = 'rgba(220,240,255,.75)'; g.fillStyle = 'rgba(220,240,255,.85)'; g.font = '600 22px Consolas,monospace'; g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (let i = 0; i <= 20; i++) { const y = 1024 - i / 20 * 1024; const major = i % 2 === 0; g.lineWidth = major ? 3 : 1.5; g.beginPath(); g.moveTo(128, clamp(y, 2, 1022)); g.lineTo(major ? 92 : 108, clamp(y, 2, 1022)); g.stroke(); if (major && i > 0 && i < 20) g.fillText(fmtK(lim * i / 20), 86, y); }
+  rulerTex.needsUpdate = true;
+  warnLine.position.y = FLOOR + H * clamp(thr / lim, 0, 1);
+}
+
+/* ---------- overflow sheets + puddle ---------- */
+// Overflow film: a thin, mostly-clear sheet of water spilling over the rim and running down the
+// glass. (r1 used 90 hard 1–6px streaks over the full wall height → read as broken glass texture.)
+// Alpha only: soft wide wavy rivulets, strongest at the rim, thinning out toward the table.
+function filmTexture() {
+  const W = 512, Hh = 512; const c = document.createElement('canvas'); c.width = W; c.height = Hh; const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, Hh);
+  const r = rng(5);
+  // base film: a faint continuous sheet
+  g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(0, 0, W, Hh);
+  // rivulets: wide, soft-edged, gently meandering — not straight lines. Soft edges come from
+  // stacking several low-alpha passes of decreasing width (ctx.filter blur is missing on iOS Safari).
+  for (let i = 0; i < 16; i++) {
+    const x0 = r() * W, w = 10 + r() * 26, a = 0.12 + r() * 0.22, ph = r() * 6.3, amp = 4 + r() * 10;
+    for (let k = 0; k < 4; k++) {
+      const ww = w * (1 - k * 0.22);
+      g.fillStyle = `rgba(255,255,255,${a / 4})`; g.beginPath();
+      for (let y = 0; y <= Hh; y += 16) g.lineTo(x0 + Math.sin(y * 0.018 + ph) * amp - ww / 2, y);
+      for (let y = Hh; y >= 0; y -= 16) g.lineTo(x0 + Math.sin(y * 0.018 + ph) * amp + ww / 2, y);
+      g.closePath(); g.fill();
+    }
+  }
+  // vertical falloff: full at the rim (top), fading out ~70% of the way down
+  g.globalCompositeOperation = 'multiply';
+  const fall = g.createLinearGradient(0, 0, 0, Hh); fall.addColorStop(0, '#fff'); fall.addColorStop(0.18, '#ddd'); fall.addColorStop(0.7, '#222'); fall.addColorStop(1, '#000');
+  g.fillStyle = fall; g.fillRect(0, 0, W, Hh); g.globalCompositeOperation = 'source-over';
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping; t.repeat.set(2, 1); return t;
+}
+const sheetTex = filmTexture();
+const sheetMat = new THREE.MeshPhysicalMaterial({ color: 0xd8f4f6, alphaMap: sheetTex, transparent: true, opacity: 0, depthWrite: false, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2.2, side: THREE.DoubleSide });
+const sheets = new THREE.Group(); tank.add(sheets);
+const SHEET_H = RIM + 0.02;
+for (const [w, x, z, ry] of [[IW + 2 * G, 0, ID / 2 + G + 0.012, 0], [IW + 2 * G, 0, -ID / 2 - G - 0.012, 0], [ID + 2 * G, IW / 2 + G + 0.012, 0, Math.PI / 2], [ID + 2 * G, -IW / 2 - G - 0.012, 0, Math.PI / 2]]) {
+  // hang from the rim: geometry top at local y=0, so scale.y grows the curtain downward
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, SHEET_H).translate(0, -SHEET_H / 2, 0), sheetMat); m.position.set(x, SHEET_H, z); m.rotation.y = ry; m.renderOrder = 6; m.scale.y = 0.001; sheets.add(m);
+}
+const puddleMat = new THREE.MeshPhysicalMaterial({ color: 0x29404f, roughness: 0.18, metalness: 0.1, clearcoat: 1, transparent: true, opacity: 0, depthWrite: false, envMapIntensity: 2 });
+const puddle = new THREE.Mesh(new THREE.CircleGeometry(1, 64), puddleMat); puddle.rotation.x = -Math.PI / 2; puddle.position.y = 0.003; puddle.scale.set(0.1, 0.1, 1); scene.add(puddle);
+
+/* ---------- particles (splash droplets, bubbles, overflow) ---------- */
+const PMAX = 4000;
+const pPos = new Float32Array(PMAX * 3), pVel = new Float32Array(PMAX * 3), pLife = new Float32Array(PMAX), pMax = new Float32Array(PMAX), pKind = new Uint8Array(PMAX);
+const pAlpha = new Float32Array(PMAX), pSize = new Float32Array(PMAX);
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3).setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('aAlpha', new THREE.BufferAttribute(pAlpha, 1).setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('aSize', new THREE.BufferAttribute(pSize, 1).setUsage(THREE.DynamicDrawUsage));
+const pMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { uScale: { value: 600 } },
+  vertexShader: `attribute float aAlpha; attribute float aSize; varying float vA; uniform float uScale;
+    void main(){ vA=aAlpha; vec4 mv=modelViewMatrix*vec4(position,1.); gl_PointSize=aSize*uScale/max(0.1,-mv.z); gl_Position=projectionMatrix*mv; }`,
+  fragmentShader: `varying float vA; void main(){ vec2 c=gl_PointCoord-.5; float d=length(c); if(d>.5||vA<=0.) discard;
+    float hl=smoothstep(.22,.0,length(c-vec2(-.13,-.13))); vec3 col=mix(vec3(.62,.84,.95),vec3(1.),hl*.9);
+    float a=smoothstep(.5,.32,d)*vA; gl_FragColor=vec4(col*(.75+.25*hl),a); }`,
+});
+const points = new THREE.Points(pGeo, pMat); points.frustumCulled = false; points.renderOrder = 8; scene.add(points);
+let pNext = 0;
+function emit(kind, x, y, z, vx, vy, vz, life, size) {
+  const i = pNext; pNext = (pNext + 1) % PMAX;
+  pPos[i * 3] = x; pPos[i * 3 + 1] = y; pPos[i * 3 + 2] = z; pVel[i * 3] = vx; pVel[i * 3 + 1] = vy; pVel[i * 3 + 2] = vz;
+  pLife[i] = life; pMax[i] = life; pKind[i] = kind; pSize[i] = size; pAlpha[i] = 1;
+}
+function splash(x, z, strength = 1) {
+  const y = surfaceY();
+  for (let i = 0; i < 160 * strength; i++) {
+    const a = Math.random() * Math.PI * 2, s = 0.4 + Math.random() * 1.4, up = 1.4 + Math.random() * 2.6;
+    emit(0, x + Math.cos(a) * 0.12, y + 0.02, z + Math.sin(a) * 0.12, Math.cos(a) * s, up * strength, Math.sin(a) * s, 0.6 + Math.random() * 0.7, 0.012 + Math.random() * 0.02);
+  }
+  for (let i = 0; i < 40; i++) emit(1, x + (Math.random() - .5) * 0.4, y - 0.05 - Math.random() * 0.3, z + (Math.random() - .5) * 0.3, 0, 0.25 + Math.random() * 0.4, 0, 1.5 + Math.random() * 2, 0.012 + Math.random() * 0.018);
+  ripples.push({ x, z, t0: clock, amp: 0.06 * strength }); if (ripples.length > 14) ripples.shift();
+}
+function stepParticles(dt) {
+  const sy = surfaceY(); const inX = IW / 2, inZ = ID / 2;
+  for (let i = 0; i < PMAX; i++) {
+    if (pLife[i] <= 0) { pAlpha[i] = 0; continue; }
+    pLife[i] -= dt; const k = pKind[i]; const j = i * 3;
+    if (k === 1) { // bubble
+      pVel[j] = Math.sin(clock * 6 + i) * 0.05; pPos[j] += pVel[j] * dt; pPos[j + 1] += pVel[j + 1] * dt; pPos[j + 2] += Math.cos(clock * 5 + i) * 0.04 * dt;
+      if (pPos[j + 1] >= sy - 0.01) pLife[i] = 0;
+    } else {
+      pVel[j + 1] -= 9.8 * dt; pPos[j] += pVel[j] * dt; pPos[j + 1] += pVel[j + 1] * dt; pPos[j + 2] += pVel[j + 2] * dt;
+      const inside = Math.abs(pPos[j]) < inX && Math.abs(pPos[j + 2]) < inZ;
+      if (k === 0 && inside && pVel[j + 1] < 0 && pPos[j + 1] < sy) pLife[i] = 0;
+      if (k === 0 && inside && pPos[j + 1] < FLOOR) pLife[i] = 0;
+      if (k === 2 && !inside && pPos[j + 1] < 0.02) { pPos[j + 1] = 0.02; pVel[j + 1] *= -0.15; pVel[j] *= 0.5; pVel[j + 2] *= 0.5; }
+    }
+    pAlpha[i] = clamp(pLife[i] / Math.min(0.35, pMax[i]), 0, 1) * (k === 1 ? 0.7 : 0.95);
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.aAlpha.needsUpdate = true; pGeo.attributes.aSize.needsUpdate = true;
+}
+
+/* ---------- card faces ---------- */
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function wrapText(g, text, maxW, maxLines) {
+  const toks = String(text || '').replace(/\s+/g, ' ').match(/[⺀-￯]|[^\s⺀-￯]+|\s+/g) || [];
+  const lines = []; let cur = '';
+  for (const t of toks) {
+    const test = cur + t;
+    if (g.measureText(test).width > maxW && cur.trim()) { lines.push(cur.trim()); cur = t.trim() ? t : ''; if (lines.length >= maxLines) break; }
+    else cur = test;
+  }
+  if (lines.length < maxLines && cur.trim()) lines.push(cur.trim());
+  if (lines.length === maxLines && toks.join('').length > lines.join('').length + 2) { let l = lines[maxLines - 1]; while (g.measureText(l + '…').width > maxW && l.length) l = l.slice(0, -1); lines[maxLines - 1] = l + '…'; }
+  return lines;
+}
+function fitFont(g, text, weight, maxPx, minPx, maxW, fam) { let px = maxPx; do { g.font = `${weight} ${px}px ${fam}`; if (g.measureText(text).width <= maxW) break; px -= 2; } while (px > minPx); return px; }
+const FAM = '"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif';
+function drawCardFace(card) {
+  const W = 512, Hh = 716; const c = document.createElement('canvas'); c.width = W; c.height = Hh; const g = c.getContext('2d');
+  const cat = CAT[card.category] || CAT.user; const r = rng(hash(card.name));
+  roundRect(g, 0, 0, W, Hh, 34); g.save(); g.clip();
+  // frame
+  let gr = g.createLinearGradient(0, 0, W, Hh); gr.addColorStop(0, cat.c); gr.addColorStop(.5, '#f6f2e8'); gr.addColorStop(1, cat.c2); g.fillStyle = gr; g.fillRect(0, 0, W, Hh);
+  roundRect(g, 14, 14, W - 28, Hh - 28, 24); g.fillStyle = '#10151c'; g.fill();
+  // header ribbon
+  g.fillStyle = cat.c; roundRect(g, 26, 26, W - 52, 46, 12); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.72)'; g.font = `800 22px ${FAM}`; g.textBaseline = 'middle'; g.fillText(cat.label, 42, 50);
+  g.textAlign = 'right'; g.fillText(card.kind === 'summary' ? `#${card.seqNo}` : `#${card.seqNo}`, W - 42, 50); g.textAlign = 'left';
+  // name
+  g.fillStyle = '#f4f7fa'; const nm = card.name; const px = fitFont(g, nm, 750, 50, 24, W - 70, FAM); g.font = `750 ${px}px ${FAM}`; g.fillText(nm, 36, 112);
+  // art window
+  const ax = 30, ay = 146, aw = W - 60, ah = 230;
+  g.save(); roundRect(g, ax, ay, aw, ah, 16); g.clip();
+  gr = g.createLinearGradient(ax, ay, ax + aw, ay + ah); gr.addColorStop(0, cat.c2); gr.addColorStop(1, '#0b1016'); g.fillStyle = gr; g.fillRect(ax, ay, aw, ah);
+  const cx = ax + aw / 2, cy = ay + ah / 2;
+  for (let i = 0; i < 26; i++) { g.strokeStyle = `rgba(255,255,255,${0.03 + r() * 0.06})`; g.lineWidth = 1 + r() * 2; g.beginPath(); g.arc(cx + (r() - .5) * aw, cy + (r() - .5) * ah, 20 + r() * 120, 0, 7); g.stroke(); }
+  const sides = 3 + Math.floor(r() * 6), rad = 78, rot = r() * Math.PI;
+  for (let k = 3; k >= 0; k--) { g.beginPath(); for (let i = 0; i <= sides; i++) { const a = rot + i / sides * Math.PI * 2; const rr = rad * (1 - k * 0.2); g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); } g.strokeStyle = k === 0 ? cat.c : `rgba(255,255,255,${0.12 + k * 0.05})`; g.lineWidth = k === 0 ? 4 : 2; g.stroke(); }
+  const glow = g.createRadialGradient(cx, cy, 4, cx, cy, 90); glow.addColorStop(0, cat.c + 'cc'); glow.addColorStop(1, cat.c + '00'); g.fillStyle = glow; g.fillRect(ax, ay, aw, ah);
+  const ini = (card.kind === 'summary' ? 'Σ' : (nm.split(/[:/\-_ ]/).filter(Boolean).slice(0, 2).map((s) => s[0]).join('') || nm[0] || '?')).toUpperCase();
+  g.fillStyle = '#fff'; g.font = `800 ${ini.length > 1 ? 76 : 96}px Georgia,serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = cat.c; g.shadowBlur = 24; g.fillText(ini, cx, cy + 4); g.shadowBlur = 0; g.textAlign = 'left';
+  g.restore();
+  g.strokeStyle = 'rgba(255,255,255,.18)'; g.lineWidth = 2; roundRect(g, ax, ay, aw, ah, 16); g.stroke();
+  // description
+  g.fillStyle = '#c9d4de'; g.font = `500 21px ${FAM}`; g.textBaseline = 'top';
+  const lines = wrapText(g, card.desc || card.preview || '（無描述）', W - 72, 5); lines.forEach((l, i) => g.fillText(l, 36, 394 + i * 29));
+  // stats footer
+  g.fillStyle = 'rgba(255,255,255,.06)'; roundRect(g, 26, Hh - 150, W - 52, 112, 14); g.fill();
+  g.textBaseline = 'middle';
+  const stat = (lbl, val, x, y, col) => { g.fillStyle = '#7f8fa0'; g.font = `600 17px ${FAM}`; g.fillText(lbl, x, y); g.fillStyle = col || '#f4f7fa'; g.font = `700 30px Consolas,monospace`; g.fillText(val, x, y + 32); };
+  if (card.kind === 'summary') {
+    stat('壓縮前', fmtK(card.pre), 44, Hh - 128, '#ffb08a'); stat('壓縮後', fmtK(card.post), 206, Hh - 128, '#9fe6b8'); stat('觸發', card.trigger || 'auto', 356, Hh - 128);
+  } else {
+    stat('Δ context', card.delta == null ? '…' : (card.delta >= 0 ? '+' : '') + fmtK(card.delta), 44, Hh - 128, cat.c);
+    stat('估計成本', '≈' + fmtK(card.est), 236, Hh - 128); stat('載入', card.t ? new Date(card.t).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' }) : '-', 390, Hh - 128);
+  }
+  g.fillStyle = '#5a6878'; g.font = `500 15px ${FAM}`; g.fillText(card.kind === 'summary' ? `保留 ${card.keptNames ? card.keptNames.length : 0} 個 skill · ${fmtTime(card.t)}` : (card.source === 'slash' ? '/指令載入' : 'Skill 工具載入') + (card.args ? ' · ' + String(card.args).slice(0, 34) : ''), 36, Hh - 22);
+  g.restore();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+function drawCardBack() {
+  const W = 512, Hh = 716; const c = document.createElement('canvas'); c.width = W; c.height = Hh; const g = c.getContext('2d');
+  roundRect(g, 0, 0, W, Hh, 34); g.save(); g.clip();
+  g.fillStyle = '#c7b07a'; g.fillRect(0, 0, W, Hh); roundRect(g, 14, 14, W - 28, Hh - 28, 24); const gr = g.createLinearGradient(0, 0, W, Hh); gr.addColorStop(0, '#13233a'); gr.addColorStop(1, '#0a1220'); g.fillStyle = gr; g.fill();
+  g.strokeStyle = 'rgba(199,176,122,.35)'; g.lineWidth = 2; for (let i = -Hh; i < W + Hh; i += 28) { g.beginPath(); g.moveTo(i, 14); g.lineTo(i + Hh, Hh); g.stroke(); g.beginPath(); g.moveTo(i + Hh, 14); g.lineTo(i, Hh); g.stroke(); }
+  g.fillStyle = '#0d1828'; g.beginPath(); g.arc(W / 2, Hh / 2, 120, 0, 7); g.fill(); g.strokeStyle = '#c7b07a'; g.lineWidth = 5; g.stroke();
+  g.fillStyle = '#e8d6a4'; g.font = `800 46px Georgia,serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SKILL', W / 2, Hh / 2 - 22); g.font = `600 30px Georgia,serif`; g.fillText('TANK', W / 2, Hh / 2 + 26);
+  g.restore(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const backTex = drawCardBack();
+const cardGeo = new THREE.PlaneGeometry(CW, CH);
+const coreGeo = new THREE.BoxGeometry(CW - 0.05, CH - 0.05, 0.004);
+const coreMat = new THREE.MeshStandardMaterial({ color: 0x0b0e12, roughness: 0.6 });
+
+/* ---------- model ---------- */
+const M = {
+  session: null, title: '', model: '', ctx: 0, limit: 200000, threshold: 167000, cards: [], events: [], applied: 0,
+  usage: [], compactions: 0, pendingCompact: null, nSkill: 0, mode: 'demo',
+};
+const V = { cards: new Map(), level: 0, target: 0, agitation: 0, compactAnim: null };
+let limOverride = 'auto', thrOverride = 'auto';
+function effLimit() { if (limOverride === 'auto') return M.limit; if (limOverride === 'custom') return +$('limCustom').value || M.limit; return +limOverride; }
+function effThreshold() { const L = effLimit(); if (thrOverride === 'auto') return limOverride === 'auto' ? M.threshold : Math.max(1, L - 33000); return L * +thrOverride; }
+
+function resetModel() {
+  M.title = ''; M.model = ''; M.ctx = 0; M.limit = 200000; M.threshold = 167000; M.cards = []; M.applied = 0; M.usage = []; M.compactions = 0; M.pendingCompact = null; M.nSkill = 0;
+  for (const v of V.cards.values()) disposeCardView(v);
+  V.cards.clear(); V.compactAnim = null; V.level = V.target = 0; V.agitation = 0; restCounter = 0;
+}
+function keptMatch(name, kept) { return kept.some((k) => k === name || name.split(':').pop() === k.split(':').pop()); }
+function finalizeCompact() {
+  const pc = M.pendingCompact; if (!pc) return; M.pendingCompact = null;
+  const kept = pc.kept || [];
+  pc.summary.keptNames = [];
+  // newest first: a skill loaded twice survives as a single card (invoked_skills lists each name once)
+  for (const c of [...pc.candidates].reverse()) { if (c.kind === 'skill' && keptMatch(c.name, kept) && !pc.summary.keptNames.includes(c.name)) { c.survived = (c.survived || 0) + 1; pc.summary.keptNames.push(c.name); } else c.alive = false; }
+  pc.finalized = true;
+  const v = V.cards.get(pc.summary.id); if (v) refreshFace(v);
+}
+function applyEvent(e, animate) {
+  M.applied++;
+  switch (e.type) {
+    case 'title': M.title = e.title; break;
+    case 'model': M.model = e.model; break;
+    case 'limit': M.limit = e.limit; M.threshold = e.threshold; drawLabels(); break;
+    case 'usage': {
+      if (M.pendingCompact && !animate) finalizeCompact();
+      M.ctx = e.ctx; if (e.model) M.model = M.model && M.model.includes(e.model) ? M.model : e.model;
+      M.usage.push({ ctx: e.ctx, i: M.applied, t: e.t }); break;
+    }
+    case 'skill': {
+      if (M.pendingCompact && !animate) finalizeCompact();
+      const card = { ...e, kind: 'skill', alive: true, seqNo: ++M.nSkill };
+      M.cards.push(card); M.usage.length && (card.usageIdx = M.usage.length - 1);
+      if (animate) dropCard(card); break;
+    }
+    case 'skillcost': { const c = M.cards.find((x) => x.id === e.id); if (c) { c.delta = e.delta; const v = V.cards.get(c.id); if (v) refreshFace(v); } break; }
+    case 'compact': {
+      if (M.pendingCompact) finalizeCompact();
+      M.compactions++;
+      const summary = { id: 'C' + (e.line || M.applied) + '_' + M.compactions, kind: 'summary', category: 'summary', name: `Compact #${M.compactions}`, desc: `第 ${M.compactions} 次${e.trigger === 'manual' ? '手動' : '自動'}壓縮：${fmtK(e.pre)} tokens 的對話被濃縮成摘要${e.post ? '（約 ' + fmtK(e.post) + '）' : ''}，沒被重新注入的 skill 牌全被沖走。`, pre: e.pre, post: e.post, trigger: e.trigger, t: e.t, alive: true, seqNo: M.compactions, keptNames: [] };
+      M.pendingCompact = { candidates: M.cards.filter((c) => c.alive && c.kind === 'skill'), kept: null, summary, ev: e };
+      M.cards.push(summary);
+      M.usage.push({ ctx: e.pre, i: M.applied, t: e.t, compact: true });
+      M.ctx = e.post != null ? e.post : Math.round(M.ctx * 0.08);
+      M.usage.push({ ctx: M.ctx, i: M.applied, t: e.t });
+      if (animate) startCompactAnim(M.pendingCompact, e.pre); break;
+    }
+    case 'kept': if (M.pendingCompact && e.afterCompact !== false) { M.pendingCompact.kept = e.names; if (!animate) finalizeCompact(); } break;
+  }
+  if (e.type === 'usage' || e.type === 'compact' || e.type === 'limit') { if (!V.compactAnim) V.target = M.ctx / effLimit(); }
+}
+
+/* ---------- card views ---------- */
+let restCounter = 0;
+function makeCardView(card) {
+  const grp = new THREE.Group(); grp.rotation.order = 'YXZ';
+  const front = new THREE.Mesh(cardGeo, new THREE.MeshPhysicalMaterial({ map: drawCardFace(card), alphaTest: 0.5, roughness: 0.38, clearcoat: 0.7, clearcoatRoughness: 0.2, transparent: false }));
+  front.position.z = 0.0026; front.castShadow = true; front.receiveShadow = true;
+  const back = new THREE.Mesh(cardGeo, new THREE.MeshPhysicalMaterial({ map: backTex, alphaTest: 0.5, roughness: 0.4, clearcoat: 0.5 }));
+  back.rotation.y = Math.PI; back.position.z = -0.0026; back.castShadow = true;
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  grp.add(front, back, core); front.userData.cardId = card.id;
+  tank.add(grp);
+  const v = { card, grp, front, back, state: 'rest', t: 0, rest: null, yaw: 0, opacity: 1 };
+  V.cards.set(card.id, v); return v;
+}
+function refreshFace(v) { const old = v.front.material.map; v.front.material.map = drawCardFace(v.card); v.front.material.needsUpdate = true; old && old.dispose(); }
+function disposeCardView(v) { if (v.draw) endDraw(v, false); tank.remove(v.grp); v.front.material.map && v.front.material.map.dispose(); v.front.material.dispose(); v.back.material.dispose(); }
+const SUMMARY_PILE = new THREE.Vector2(-0.55, -0.25), KEPT_PILE = new THREE.Vector2(0.3, -0.3);
+function restTop(x, z, exclude) {
+  let top = FLOOR + 0.004;
+  for (const v of V.cards.values()) { if (v === exclude || !v.rest || v.state === 'washed') continue; const dx = v.rest.x - x, dz = v.rest.z - z; if (dx * dx + dz * dz < 0.42 * 0.42) top = Math.max(top, v.rest.y + 0.0105); }
+  return top;
+}
+function chooseRest(v, mode) {
+  const r = rng(hash(v.card.id) + (mode === 'kept' ? 99 : 0));
+  let x, z;
+  if (v.card.kind === 'summary' || mode === 'summary') { x = SUMMARY_PILE.x + (r() - .5) * 0.06; z = SUMMARY_PILE.y + (r() - .5) * 0.06; v.yaw = (r() - .5) * 0.25; }
+  else if (mode === 'kept') { x = KEPT_PILE.x + (r() - .5) * 0.1; z = KEPT_PILE.y + (r() - .5) * 0.1; v.yaw = (r() - .5) * 0.35 + 0.15; }
+  else { x = (r() * 2 - 1) * (IW / 2 - 0.38); z = (r() * 2 - 1) * (ID / 2 - 0.42) + 0.1; v.yaw = (r() - .5) * 1.4; }
+  z = clamp(z, -ID / 2 + 0.4, ID / 2 - 0.4);
+  v.rest = new THREE.Vector3(x, restTop(x, z, v), z);
+}
+function placeAtRest(v) { v.grp.position.copy(v.rest); v.grp.rotation.set(-Math.PI / 2, v.yaw, 0); v.state = 'rest'; }
+function rebuildViews() {
+  for (const v of V.cards.values()) disposeCardView(v); V.cards.clear();
+  for (const c of M.cards) if (c.alive) { const v = makeCardView(c); chooseRest(v, c.kind === 'summary' ? 'summary' : c.survived ? 'kept' : 'scatter'); placeAtRest(v); }
+}
+function dropCard(card) {
+  const v = makeCardView(card); chooseRest(v, 'scatter');
+  v.flyDur = 1.15; v.spin = (Math.random() < .5 ? -1 : 1);
+  v.entry = new THREE.Vector3(v.rest.x * 0.85, 0, v.rest.z * 0.85);
+  // r3: the card is first drawn out of the deck panel (DOM ghost), then handed over to 3D at the ghost's screen spot
+  const d = card.kind === 'skill' ? deckDraw(card, v) : null;
+  if (d) { v.state = 'draw'; v.t = 0; v.draw = d; v.grp.visible = false; v.grp.position.copy(v.rest); v.grp.rotation.set(-Math.PI / 2, v.yaw, 0); }
+  else launchFly(v, new THREE.Vector3((Math.random() - .5) * 1.2, RIM + 2.6, ID / 2 + 2.2), null);
+}
+function launchFly(v, p0, q0) {
+  v.state = 'fly'; v.t = 0; v.p0 = p0; v.q0 = q0; v.grp.visible = true; v.grp.position.copy(p0);
+  if (q0) { v.grp.quaternion.copy(q0); v.qEnd = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, v.yaw, 0, 'YXZ')); v.flyDur = 1.3; }
+  else v.grp.rotation.set(0, 0, 0);
+}
+// screen point (CSS px) → 3D point at the depth where a camera-facing card is hPx tall on screen
+function screenToWorld(x, y, hPx) {
+  const r = renderer.domElement.getBoundingClientRect();
+  const nx = ((x - r.left) / r.width) * 2 - 1, ny = -((y - r.top) / r.height) * 2 + 1;
+  const depth = clamp(CH * r.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(24, hPx)), 0.9, camera.position.distanceTo(controls.target) * 0.92);
+  const dir = new THREE.Vector3(nx, ny, 0.5).unproject(camera).sub(camera.position).normalize();
+  const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+  return camera.position.clone().addScaledVector(dir, depth / dir.dot(fwd));
+}
+function worldToScreen(p) { const r = renderer.domElement.getBoundingClientRect(); const v = p.clone().project(camera); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height }; }
+const _qa = new THREE.Quaternion(), _qx = new THREE.Quaternion(), _X = new THREE.Vector3(1, 0, 0);
+function handoff(v) {
+  const d = v.draw; const p0 = screenToWorld(d.end.x, d.end.y, d.end.h);
+  launchFly(v, p0, camera.quaternion.clone());
+  const s = worldToScreen(p0);
+  lastDraw = { name: v.card.name, src: d.src, srcRect: d.srcRect, ghostEnd: d.end, spawnScreen: s, spawnWorld: p0.toArray(), at: performance.now() };
+  endDraw(v, true);
+}
+function surfaceY() { return FLOOR + H * clamp(V.level, 0, 1); }
+function stepCards(dt) {
+  const sy = surfaceY(); const wet = V.level > 0.01;
+  for (const v of V.cards.values()) {
+    const g = v.grp; v.t += dt;
+    if (v.draw && v.state !== 'draw') endDraw(v, false); // interrupted (e.g. washed by a compaction mid-draw)
+    if (v.state === 'draw') { if (v.t >= v.draw.dur) handoff(v); continue; }
+    if (v.state === 'fly') {
+      const u = clamp(v.t / v.flyDur, 0, 1); const ease = v.q0 ? 1 - Math.pow(1 - u, 1.6) : u;
+      const ey = wet ? sy : v.rest.y + 0.3;
+      const p = new THREE.Vector3().lerpVectors(v.p0, new THREE.Vector3(v.entry.x, ey, v.entry.z), ease);
+      p.y += Math.sin(u * Math.PI) * (v.q0 ? 0.45 : 0.9);
+      g.position.copy(p);
+      if (v.q0) { // from the deck: start face-on to the camera (= where the DOM card was), one somersault, land flat
+        g.quaternion.copy(v.q0).slerp(v.qEnd, smooth(0, 1, u)); _qx.setFromAxisAngle(_X, -Math.PI * 2 * smooth(0.12, 0.88, u)); g.quaternion.multiply(_qx);
+      } else g.rotation.set(-u * (Math.PI * 2 + Math.PI / 2), v.yaw * u, v.spin * Math.sin(u * Math.PI) * 0.6);
+      if (u >= 1) { v.state = 'sink'; v.t = 0; v.from = g.position.clone(); if (wet) splash(g.position.x, g.position.z, 1); }
+    } else if (v.state === 'sink') {
+      const dur = wet ? 3.2 : 0.5; const u = clamp(v.t / dur, 0, 1); const e = 1 - Math.pow(1 - u, 2.2);
+      g.position.x = lerp(v.from.x, v.rest.x, e) + Math.sin(v.t * 3.1) * 0.06 * (1 - u);
+      g.position.z = lerp(v.from.z, v.rest.z, e) + Math.cos(v.t * 2.3) * 0.04 * (1 - u);
+      g.position.y = lerp(v.from.y, v.rest.y, e);
+      g.rotation.set(-Math.PI / 2 + Math.sin(v.t * 4.2) * 0.35 * (1 - u), v.yaw + Math.sin(v.t * 1.7) * 0.2 * (1 - u), Math.cos(v.t * 3.6) * 0.3 * (1 - u));
+      if (wet && Math.random() < dt * 14 * (1 - u)) emit(1, g.position.x + (Math.random() - .5) * 0.2, g.position.y, g.position.z + (Math.random() - .5) * 0.2, 0, 0.3 + Math.random() * 0.3, 0, 2.5, 0.01 + Math.random() * 0.012);
+      if (u >= 1) placeAtRest(v);
+    } else if (v.state === 'washed') {
+      const u = clamp(v.t / v.dur, 0, 1); const p = v.path.getPointAt(u); g.position.copy(p);
+      g.rotation.set(-Math.PI / 2 + u * v.tumble * 6, v.yaw + u * 3 * v.tumble, u * 2.5);
+      const op = 1 - smooth(0.62, 1, u); setCardOpacity(v, op);
+      if (u >= 1) v.dead = true;
+    } else if (v.state === 'restack') {
+      const u = clamp(v.t / v.dur, 0, 1); const e = u * u * (3 - 2 * u);
+      g.position.lerpVectors(v.from, v.rest, e); g.position.y += Math.sin(u * Math.PI) * 0.5;
+      g.rotation.set(-Math.PI / 2 + Math.sin(u * Math.PI) * 0.4, lerp(v.fromYaw, v.yaw, e), 0);
+      if (u >= 1) placeAtRest(v);
+    }
+  }
+  for (const [id, v] of V.cards) if (v.dead) { disposeCardView(v); V.cards.delete(id); }
+}
+function setCardOpacity(v, op) {
+  for (const m of [v.front.material, v.back.material]) { if (!m.transparent) { m.transparent = true; m.alphaTest = 0.02; m.needsUpdate = true; } m.opacity = op; }
+  v.grp.children[2].visible = op > 0.6;
+}
+
+/* ---------- compaction animation ---------- */
+function startCompactAnim(pc, pre) {
+  // finish any running one first
+  if (V.compactAnim) finishCompactAnim();
+  V.compactAnim = { pc, t: 0, from: V.level, phase: 0, flushed: false, dropped: false };
+  showToast(`⚠ 自動壓縮 #${M.compactions}  ${fmtK(pre)} → ${fmtK(pc.summary.post)}`);
+}
+function stepCompact(dt) {
+  const A = V.compactAnim; if (!A) return; A.t += dt; const t = A.t;
+  // phase: rise to overflow (0–1.3s)
+  if (t < 1.3) V.target = lerp(A.from, 1.06, smooth(0, 1.3, t));
+  if (t > 0.9 && t < 3.2) { // overflow spill
+    for (let i = 0; i < 26; i++) {
+      const side = Math.floor(Math.random() * 4); let x, z, vx = 0, vz = 0;
+      if (side < 2) { x = (Math.random() - .5) * IW; z = (side ? 1 : -1) * (ID / 2 + G + 0.02); vz = (side ? 1 : -1) * (0.2 + Math.random() * 0.4); }
+      else { z = (Math.random() - .5) * ID; x = (side === 2 ? 1 : -1) * (IW / 2 + G + 0.02); vx = (side === 2 ? 1 : -1) * (0.2 + Math.random() * 0.4); }
+      emit(2, x, RIM + 0.03, z, vx, 0.1 + Math.random() * 0.5, vz, 1.6, 0.014 + Math.random() * 0.02);
+    }
+  }
+  sheetMat.opacity = 0.42 * smooth(0.9, 1.3, t) * (1 - smooth(3.4, 4.8, t));
+  const run = smooth(0.95, 2.2, t); for (const m of sheets.children) m.scale.y = Math.max(0.001, run); // water runs down the glass
+  puddleMat.opacity = 0.5 * smooth(1.0, 2.0, t) * (1 - smooth(5.5, 6.2, t));
+  const ps = smooth(1.0, 3.4, t); puddle.scale.set(IW / 2 * 1.12 + 0.9 * ps, ID / 2 * 1.15 + 0.7 * ps, 1);
+  V.agitation = 1 - smooth(3, 5.5, t) * 0.9;
+  if (t > 1.1 && !A.flushed) { // wash away cards
+    A.flushed = true; finalizeCompact();
+    let k = 0;
+    for (const v of V.cards.values()) {
+      if (v.card.kind === 'summary') continue;
+      v.from = v.grp.position.clone(); v.fromYaw = v.grp.rotation.y; v.t = 0;
+      if (!v.card.alive) {
+        v.state = 'washed'; v.dur = 2.1 + Math.random() * 0.8; v.tumble = (Math.random() - .5) * 2; v.rest = null;
+        const side = Math.random() < 0.6 ? 0 : Math.random() < .5 ? 1 : 2; const p0 = v.grp.position.clone();
+        const ex = side === 0 ? clamp(p0.x, -IW / 2 + 0.4, IW / 2 - 0.4) : (side === 1 ? 1 : -1) * (IW / 2);
+        const ez = side === 0 ? ID / 2 : clamp(p0.z, -ID / 2 + 0.3, ID / 2 - 0.3);
+        const out = new THREE.Vector3(side === 0 ? 0 : (side === 1 ? 1 : -1), 0, side === 0 ? 1 : 0);
+        v.path = new THREE.CatmullRomCurve3([p0, new THREE.Vector3(p0.x * 0.6, FLOOR + H * 0.55, p0.z * 0.6), new THREE.Vector3(ex - out.x * 0.15, RIM + 0.05, ez - out.z * 0.15), new THREE.Vector3(ex + out.x * 0.35, RIM + 0.22, ez + out.z * 0.35), new THREE.Vector3(ex + out.x * 1.0, 0.03, ez + out.z * 1.0)]);
+      } else { v.state = 'restack'; v.dur = 1.6 + k++ * 0.15; v.rest = null; }
+    }
+    // re-stack the survivors (in order) on the kept pile
+    for (const v of V.cards.values()) if (v.state === 'restack') chooseRest(v, 'kept');
+  }
+  if (t > 2.4 && !A.dropped) { A.dropped = true; const s = A.pc.summary; const v = makeCardView(s); chooseRest(v, 'summary'); v.state = 'fly'; v.t = 0; v.flyDur = 1.2; v.p0 = new THREE.Vector3(0, RIM + 2.4, ID / 2 + 1.8); v.entry = new THREE.Vector3(v.rest.x, 0, v.rest.z); v.grp.position.copy(v.p0); v.spin = 1; }
+  if (t > 3.0) V.target = lerp(1.06, M.ctx / effLimit(), smooth(3.0, 5.6, t));
+  if (t > 6.2) finishCompactAnim();
+}
+function finishCompactAnim() {
+  const A = V.compactAnim; if (!A) return; V.compactAnim = null;
+  if (!A.flushed) finalizeCompact();
+  for (const v of V.cards.values()) { if (v.state === 'washed') v.dead = true; else if (v.state === 'restack') { if (!v.rest) chooseRest(v, 'kept'); placeAtRest(v); } }
+  if (!V.cards.has(A.pc.summary.id) && A.pc.summary.alive) { const v = makeCardView(A.pc.summary); chooseRest(v, 'summary'); placeAtRest(v); }
+  sheetMat.opacity = 0; for (const m of sheets.children) m.scale.y = 0.001; puddleMat.opacity = 0; V.agitation = 0; V.target = M.ctx / effLimit();
+}
+let toastT = 0;
+function showToast(msg) { const el = $('toast'); el.textContent = msg; el.style.display = 'block'; clearTimeout(toastT); toastT = setTimeout(() => (el.style.display = 'none'), 4200); }
+
+/* ---------- water step ---------- */
+const ripples = [];
+let clock = 0;
+function stepWater(dt) {
+  // critically-damped approach to the target level
+  const k = V.compactAnim ? 9 : 2.2; V.level += (V.target - V.level) * (1 - Math.exp(-k * dt));
+  const lvl = clamp(V.level, 0, 1); const visible = lvl > 0.002;
+  waterBody.visible = surf.visible = visible;
+  const top = FLOOR + H * lvl;
+  waterBody.scale.y = Math.max(0.001, top - FLOOR - 0.002); surf.position.y = top;
+  const pos = surfGeo.attributes.position.array; const agit = 1 + V.agitation * 1.6;
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = surfBase[i], z = surfBase[i + 2];
+    let h = (0.010 * Math.sin(x * 2.1 + clock * 1.3) + 0.007 * Math.sin(z * 3.3 - clock * 1.7) + 0.004 * Math.sin((x + z) * 6 + clock * 2.6)) * agit;
+    for (const r of ripples) { const age = clock - r.t0; if (age > 4) continue; const dx = x - r.x, dz = z - r.z; const d = Math.sqrt(dx * dx + dz * dz); const env = Math.exp(-Math.pow((d - age * 1.1) / 0.32, 2)); h += r.amp * Math.exp(-age * 1.1) * env * Math.sin(16 * d - 11 * age); }
+    if (V.level > 1) h += (V.level - 1) * 0.16 * (1 - (Math.abs(x) / (IW / 2)) ** 4) * (1 - (Math.abs(z) / (ID / 2)) ** 4); // slight meniscus, not a dome
+    pos[i + 1] = h;
+  }
+  surfGeo.attributes.position.needsUpdate = true; surfGeo.computeVertexNormals();
+  // color: teal → amber → red as it approaches the compaction line
+  const thrR = effThreshold() / effLimit(); const w = smooth(thrR - 0.28, thrR - 0.06, V.level), hot = smooth(thrR - 0.06, thrR + 0.01, V.level);
+  // warm tint only — keep the water see-through (r1: red 0.75 + distance 2.0 turned it into opaque red-brown)
+  waterMat.attenuationColor.copy(TEAL).lerp(AMBER, w * 0.85).lerp(RED, hot * 0.35);
+  waterMat.attenuationDistance = lerp(3.2, 2.7, w); surfMat.attenuationDistance = waterMat.attenuationDistance;
+  const near = V.level > thrR - 0.06 || !!V.compactAnim;
+  lineMat.emissiveIntensity = near ? 2.6 + 3.2 * (0.5 + 0.5 * Math.sin(clock * 10)) : 2.4;
+  lamp.color.setHex(0xbfe9ff).lerp(new THREE.Color(0xffb088), w * 0.6);
+  causticMat.opacity = visible ? 0.22 * clamp(lvl * 4, 0, 1) : 0; causticMat.map.offset.set(clock * 0.03, clock * 0.017);
+  caustic2.material.opacity = causticMat.opacity * 0.8; caustic2.material.map.offset.set(-clock * 0.021, clock * 0.026);
+  sheetTex.offset.x = Math.sin(clock * 0.7) * 0.02; // gentle wobble; the fall itself comes from scale.y
+  const cls = document.body.classList; cls.toggle('warn-on', w > 0.5 && hot < 0.5); cls.toggle('hot-on', hot >= 0.5 || !!V.compactAnim);
+}
+
+/* ---------- HUD + chart ---------- */
+function updateHud() {
+  const L = effLimit(), T = effThreshold(), c = M.ctx; const pct = c / L * 100;
+  { // "project · title" so it is clear which project (and machine) the session belongs to
+    const proj = M.session ? (M.session.test ? '[測試] ' : '') + (M.session.proj || M.session.project) : ''; const t = M.title || (M.session ? '' : '示範 session');
+    const want = proj + '\u0000' + t; const el = $('hTitle');
+    if (el.dataset.k !== want) { el.dataset.k = want; el.replaceChildren(); if (proj) { const sp = document.createElement('span'); sp.className = 'proj'; sp.textContent = proj; el.append(sp); }
+      if (proj && t) { const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = ' · '; el.append(sep); } if (t) el.append(document.createTextNode(t)); el.title = (proj && t ? proj + ' · ' : proj) + t; }
+  }
+  $('hSid').textContent = M.session ? `${M.session.id} · ${M.session.cwd || M.session.project}` : 'demo · 不連 server';
+  $('hPct').innerHTML = `${pct.toFixed(1)}<small>%</small>`;
+  $('hSide').innerHTML = `${fmtK(c)} / ${fmtK(L)}<br>壓縮線 ${(T / L * 100).toFixed(1)}%`;
+  $('hBar').style.width = clamp(pct, 0, 100) + '%'; $('hThr').style.left = clamp(T / L * 100, 0, 100) + '%';
+  $('hBar').style.background = pct > T / L * 100 - 6 ? 'linear-gradient(90deg,#ff9b3d,#ff3b26)' : '';
+  $('hModel').textContent = (M.model || '-') + (limOverride !== 'auto' ? ' (上限已覆寫)' : '');
+  $('hUsed').textContent = `${c.toLocaleString()} / ${L.toLocaleString()}`;
+  $('hLeft').textContent = (L - c).toLocaleString();
+  $('hToCompact').textContent = (T - c > 0 ? (T - c).toLocaleString() : '已超過');
+  const alive = M.cards.filter((x) => x.alive && x.kind === 'skill').length; $('hSkills').textContent = `${alive} / ${M.nSkill}`;
+  $('hComp').textContent = M.compactions;
+  $('hMini').textContent = pct.toFixed(1) + '% · ' + alive + ' 牌';
+  syncDeck();
+}
+const chart = $('chart');
+function drawChart() {
+  const r = chart.getBoundingClientRect(); if (!r.width) return; const dpr = Math.min(devicePixelRatio, 2);
+  chart.width = r.width * dpr; chart.height = r.height * dpr; const g = chart.getContext('2d'); g.scale(dpr, dpr);
+  const W = r.width, Hh = r.height; g.clearRect(0, 0, W, Hh);
+  const L = effLimit(), T = effThreshold(); const n = Math.max(1, totalUsagePts - 1);
+  const X = (i) => 4 + i / n * (W - 8), Y = (v) => Hh - 4 - clamp(v / L, 0, 1.05) * (Hh - 10);
+  g.strokeStyle = 'rgba(255,74,28,.7)'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, Y(T)); g.lineTo(W, Y(T)); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.moveTo(0, Y(L)); g.lineTo(W, Y(L)); g.stroke();
+  const pts = chartPts; if (!pts.length) return;
+  g.beginPath(); g.moveTo(X(0), Hh); pts.forEach((p, i) => g.lineTo(X(i), Y(p.ctx))); g.lineTo(X(pts.length - 1), Hh); g.closePath();
+  const gr = g.createLinearGradient(0, 0, 0, Hh); gr.addColorStop(0, 'rgba(63,208,216,.45)'); gr.addColorStop(1, 'rgba(63,208,216,.03)'); g.fillStyle = gr; g.fill();
+  g.strokeStyle = '#3fd0d8'; g.lineWidth = 1.5; g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(X(i), Y(p.ctx)) : g.moveTo(X(i), Y(p.ctx)))); g.stroke();
+  for (const m of chartMarks) {
+    const x = X(m.i);
+    if (m.type === 'compact') { g.strokeStyle = 'rgba(255,59,38,.85)'; g.lineWidth = 2; g.beginPath(); g.moveTo(x, 2); g.lineTo(x, Hh); g.stroke(); }
+    else { g.fillStyle = (CAT[m.cat] || CAT.user).c; g.beginPath(); g.arc(x, Y(m.ctx) - 6, 3.5, 0, 7); g.fill(); }
+  }
+  // cursor (applied position)
+  const cur = Math.max(0, M.usage.length - 1); if (M.applied < M.events.length) { g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(X(cur), 0, W - X(cur), Hh); g.strokeStyle = '#fff'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(cur), 0); g.lineTo(X(cur), Hh); g.stroke(); }
+}
+// chart points are precomputed from the full event list (so the future is visible during replay)
+let chartPts = [], chartMarks = [], totalUsagePts = 0;
+function rebuildChartData() {
+  chartPts = []; chartMarks = []; let ctx = 0;
+  for (const e of M.events) {
+    if (e.type === 'usage') { ctx = e.ctx; chartPts.push({ ctx, ei: e._i }); }
+    else if (e.type === 'compact') { chartPts.push({ ctx: e.pre, ei: e._i }); chartMarks.push({ type: 'compact', i: chartPts.length - 1 }); ctx = e.post || ctx * 0.08; chartPts.push({ ctx, ei: e._i }); }
+    else if (e.type === 'skill') chartMarks.push({ type: 'skill', i: Math.max(0, chartPts.length - 1), ctx, cat: e.category });
+  }
+  totalUsagePts = chartPts.length;
+}
+chart.addEventListener('click', (ev) => {
+  if (!chartPts.length) return; const r = chart.getBoundingClientRect(); const n = Math.max(1, chartPts.length - 1);
+  const i = clamp(Math.round((ev.clientX - r.left - 4) / (r.width - 8) * n), 0, n); seekTo(chartPts[i].ei + 1);
+});
+
+/* ---------- event stream / replay ---------- */
+let replay = null;
+function loadEvents(events) {
+  stopReplay(); resetModel(); M.events = events.map((e, i) => ({ ...e, _i: i }));
+  for (const e of M.events) applyEvent(e, false);
+  finalizeCompact(); rebuildViews(); V.level = V.target = M.ctx / effLimit(); rebuildChartData(); drawLabels(); updateHud(); drawChart();
+}
+function pushLive(e) {
+  e._i = M.events.length; M.events.push(e);
+  if (e.type === 'usage' || e.type === 'compact' || e.type === 'skill') { rebuildChartData(); }
+  if (!replay) applyEvent(e, true);
+  drawChart();
+}
+function seekTo(n) {
+  const keepReplay = !!replay; stopReplay(); resetModel();
+  for (let i = 0; i < n && i < M.events.length; i++) applyEvent(M.events[i], false);
+  finalizeCompact(); rebuildViews(); V.level = V.target = M.ctx / effLimit(); drawLabels(); updateHud(); drawChart();
+  if (n < M.events.length) startReplay(n, keepReplay);
+}
+function startReplay(from = 0, auto = true) {
+  stopReplay();
+  if (from === 0) { resetModel(); rebuildViews(); drawLabels(); }
+  replay = { i: from, wait: 0.4, auto };
+  $('btnStop').hidden = false; $('btnReplay').classList.add('on');
+}
+function stopReplay(finish) {
+  if (!replay) return; const r = replay; replay = null; $('btnStop').hidden = true; $('btnReplay').classList.remove('on');
+  if (finish) { if (V.compactAnim) finishCompactAnim(); for (let i = r.i; i < M.events.length; i++) applyEvent(M.events[i], false); finalizeCompact(); rebuildViews(); V.target = M.ctx / effLimit(); updateHud(); drawChart(); }
+}
+function stepReplay(dt) {
+  if (!replay) return; const sp = +$('selSpeed').value || 2;
+  replay.wait -= dt * sp; let guard = 0;
+  while (replay && replay.wait <= 0 && guard++ < 50) {
+    if (replay.i >= M.events.length) { stopReplay(); return; }
+    if (V.compactAnim) { replay.wait = 0.1; return; }
+    const e = M.events[replay.i++]; applyEvent(e, true);
+    // the invoked_skills ("kept") attachment follows the boundary a few lines later — apply it before the wash-out
+    if (e.type === 'compact') while (replay.i < M.events.length && !['usage', 'skill', 'compact'].includes(M.events[replay.i].type)) applyEvent(M.events[replay.i++], true);
+    replay.wait += e.type === 'skill' ? 1.5 : e.type === 'compact' ? 1.0 : e.type === 'usage' ? 0.09 : 0;
+  }
+}
+$('btnReplay').onclick = () => startReplay(0);
+$('btnStop').onclick = () => stopReplay(true);
+
+/* ---------- server connection ---------- */
+let es = null, sessions = [], currentId = null, followTimer = 0;
+async function fetchSessions() { const r = await fetch('/api/sessions', { cache: 'no-store' }); if (!r.ok) throw new Error('sessions ' + r.status); return (await r.json()).sessions; }
+function fillSessionSelect() {
+  const sel = $('selSess'); sel.innerHTML = '';
+  // grouped by project (newest project first); each entry "project · title — time · size"
+  const groups = new Map();
+  for (const s of sessions) { const g = (s.test ? '[測試] ' : '') + (s.proj || s.project); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(s); }
+  for (const [g, list] of groups) {
+    const og = document.createElement('optgroup'); og.label = g;
+    for (const s of list) { const o = document.createElement('option'); o.value = s.id; const d = new Date(s.mtime); o.textContent = `${g} · ${(s.title || s.id.slice(0, 8)).slice(0, 34)} — ${d.toLocaleString('zh-TW', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${(s.size / 1048576).toFixed(1)}MB`; og.appendChild(o); }
+    sel.appendChild(og);
+  }
+  if (currentId && !sessions.some((s) => s.id === currentId)) { const o = document.createElement('option'); o.value = currentId; o.textContent = currentId; sel.appendChild(o); }
+  sel.value = currentId || '';
+}
+function connect(id) {
+  if (es) es.close(); if (id !== currentId) { window.__deckReady = false; setDeck([], ''); } currentId = id; $('modeBadge').className = 'badge'; $('modeBadge').textContent = '連線中';
+  es = new EventSource('/api/stream?session=' + encodeURIComponent(id || 'latest'));
+  es.addEventListener('reset', (m) => { const d = JSON.parse(m.data); M.session = d.session; currentId = d.session.id; fillSessionSelect(); loadEvents(d.events); $('modeBadge').className = 'badge live'; $('modeBadge').textContent = 'LIVE'; $('note').textContent = `${d.session.file} · ${d.session.lines} 行 · ${(d.session.size / 1048576).toFixed(1)}MB · ${d.server}`; window.__ready = true; });
+  es.addEventListener('ev', (m) => { pushLive(JSON.parse(m.data)); });
+  es.addEventListener('deck', (m) => { const d = JSON.parse(m.data); setDeck(d.cards, d.source, d); });
+  es.onerror = () => { $('modeBadge').className = 'badge err'; $('modeBadge').textContent = '重連中'; };
+}
+$('selSess').onchange = (e) => { $('follow').checked = false; connect(e.target.value); };
+$('follow').onchange = () => { if ($('follow').checked) followCheck(true); };
+async function followCheck(force) {
+  try { sessions = await fetchSessions(); fillSessionSelect(); const top = sessions.find((s) => !s.test); if ($('follow').checked && top && (force || top.id !== currentId)) connect(top.id); } catch {}
+}
+
+/* ---------- demo mode ---------- */
+// No skill list ships with skill-tank: the deck is always the user's own skills (transcript skill_listing via the server,
+// or a snapshot that tools/make-demo.mjs --embed-deck puts into a private demo). Without either, the demo plays
+// neutral placeholder cards (example-skill-1 …).
+const PLACEHOLDER_CATS = ['user', 'plugin', 'project', 'command', 'builtin'];
+const demo = { ctx: 22000, line: 0, auto: null, lastSkill: -1, lastName: '' };
+function demoNow() { return new Date().toISOString(); }
+function demoEmit(e) { e.line = ++demo.line; e.t = e.t || demoNow(); pushLive(e); updateHud(); }
+// demo deck: snapshot embedded by tools/make-demo.mjs --embed-deck (window.SKILL_TANK_DECK), else the local server's deck
+// (the user's own skills), else empty (+ a hint to run the server)
+async function loadDemoDeck() {
+  if (Array.isArray(window.SKILL_TANK_DECK) && window.SKILL_TANK_DECK.length) return setDeck(window.SKILL_TANK_DECK, 'snapshot');
+  if (!DEMO_ONLY && location.protocol.startsWith('http')) {
+    try { const r = await fetch('/api/deck', { cache: 'no-store' }); if (r.ok) { const d = await r.json(); if (d.cards && d.cards.length) return setDeck(d.cards, d.source, d); } } catch {}
+  }
+  setDeck([], 'none');
+}
+// play one card: `name` = the deck card the user clicked; no name = draw a random card from the deck
+function demoCard(pickName) {
+  let name, category, desc, est;
+  if (pickName) { const c = D.cards.find((x) => x.name === pickName) || { name: pickName, category: 'user', description: '' }; name = c.name; category = c.category; desc = c.description; }
+  else if (D.cards.length > 1) { let c; do { c = D.cards[Math.floor(Math.random() * D.cards.length)]; } while (c.name === demo.lastName); name = c.name; category = c.category; desc = c.description; }
+  else { const i = demo.lastSkill = (demo.lastSkill + 1) % 8; name = 'example-skill-' + (i + 1); category = PLACEHOLDER_CATS[i % PLACEHOLDER_CATS.length]; desc = '示範用的佔位牌（連上本機 server 才會載入你自己的 skills）／placeholder card'; }
+  demo.lastName = name;
+  if (est == null) est = 500 + (hash(name) % 4200);
+  const id = 'D' + (demo.line + 1);
+  demoEmit({ type: 'skill', id, name, category, desc, est, source: category === 'command' ? 'slash' : 'tool', args: '', delta: null });
+  const d = Math.round(est * (1.1 + Math.random() * 0.6) + 800); demo.ctx += d;
+  demoEmit({ type: 'skillcost', id, delta: d }); demoEmit({ type: 'usage', ctx: demo.ctx, model: 'claude-opus-5-5 (demo)' });
+}
+function demoWater(frac = 0.06) { demo.ctx = Math.round(demo.ctx + effLimit() * frac); demoEmit({ type: 'usage', ctx: demo.ctx, model: 'claude-opus-5-5 (demo)' }); if (demo.ctx >= effThreshold()) demoCompact('auto'); }
+function demoCompact(trigger = 'manual') {
+  const alive = M.cards.filter((c) => c.alive && c.kind === 'skill'); const kept = alive.sort(() => Math.random() - .5).slice(0, Math.min(2, alive.length)).map((c) => c.name);
+  const post = Math.round(effLimit() * (0.06 + Math.random() * 0.05)); const pre = Math.max(demo.ctx, Math.round(effThreshold()));
+  demoEmit({ type: 'compact', trigger, pre, post }); demoEmit({ type: 'kept', names: kept, afterCompact: true }); demo.ctx = post + Math.round(effLimit() * 0.04);
+  setTimeout(() => demoEmit({ type: 'usage', ctx: demo.ctx, model: 'claude-opus-5-5 (demo)' }), 6500);
+}
+function demoTick() {
+  if (V.compactAnim || replay) return;
+  if (Math.random() < 0.42) demoCard(); else demoWater(0.035 + Math.random() * 0.05);
+}
+function setAuto(on) { if (demo.auto) clearInterval(demo.auto); demo.auto = on ? setInterval(demoTick, 2300) : null; $('dAuto').classList.toggle('on', !!on); $('dAuto').textContent = on ? '❚❚ 暫停自動' : '▶ 自動播放'; }
+$('dCard').onclick = () => demoCard();
+$('dWater').onclick = () => demoWater(0.06);
+$('dComp').onclick = () => { if (!V.compactAnim) demoCompact('manual'); };
+$('dAuto').onclick = () => setAuto(!demo.auto);
+$('dReset').onclick = () => { setAuto(false); startDemo(false); };
+function startDemo(auto) {
+  M.mode = 'demo'; M.session = null; demo.ctx = 22000; demo.line = 0;
+  loadEvents([{ type: 'title', title: '示範 session（不連 server）' }, { type: 'model', model: 'claude-opus-5-5 (demo)' }, { type: 'limit', limit: 200000, threshold: 167000, reason: 'demo' }, { type: 'usage', ctx: demo.ctx, model: 'claude-opus-5-5 (demo)' }]);
+  $('modeBadge').className = 'badge demo'; $('modeBadge').textContent = 'DEMO'; $('liveCtl').hidden = true; $('toTable').hidden = true;
+  $('note').textContent = DEMO_ONLY ? '示範版：點牌庫裡的牌＝丟進缸；也能隨機抽、加水、觸發壓縮。接真實 session 請在本機跑 server.mjs。' : '沒有連到 server（或加了 ?demo），目前是示範模式：點牌庫裡的牌＝丟進缸。';
+  if (!D.cards.length) loadDemoDeck();
+  if (auto) setAuto(true);
+  window.__ready = true;
+}
+
+/* ---------- deck (牌庫): every skill card the session can play ---------- */
+// Source: server 'deck' SSE event / GET /api/deck (transcript skill_listing, fs fallback); demo: embedded snapshot.
+const CAT_ORDER = ['user', 'project', 'plugin', 'command', 'builtin'];
+const D = { cards: [], els: new Map(), source: '', sig: '', q: '', cat: 'all', onlyPlayed: false, plays: 0, extras: 0, seenNames: null };
+let lastDraw = null;
+const deckEl = $('deck'), deckHead = deckEl.querySelector('.ph'), deckList = $('deckList');
+const deckOpen = () => deckHead.getAttribute('aria-expanded') === 'true';
+const escH = (s) => String(s ?? '').replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const initials = (nm) => (String(nm).split(/[:/\-_ ]/).filter(Boolean).slice(-2).map((s) => s[0]).join('') || '?').toUpperCase();
+function miniCard(c) {
+  const cat = CAT[c.category] || CAT.user; const b = document.createElement('button');
+  b.className = 'mc' + (c.extra ? ' extra' : ''); b.type = 'button'; b.dataset.name = c.name; b.style.setProperty('--c', cat.c); b.style.setProperty('--c2', cat.c2);
+  b.setAttribute('aria-label', `${c.name}（${cat.zh}）`);
+  b.innerHTML = `<b><span class="rb">${escH(cat.label)}</span><span class="gl">${escH(initials(c.name))}</span><span class="nm">${escH(c.name)}</span></b><span class="n"></span>`;
+  return b;
+}
+function setDeck(cards, source, info) {
+  const prev = D.seenNames; const extras = D.cards.filter((c) => c.extra);
+  D.cards = (cards || []).map((c) => ({ ...c, extra: false })); D.source = source || ''; D.info = info || null;
+  for (const x of extras) if (!D.cards.some((c) => c.name === x.name)) D.cards.push(x);
+  D.seenNames = new Set(D.cards.map((c) => c.name));
+  renderDeck(prev); window.__deckReady = true;
+}
+function renderDeck(prevNames) {
+  D.els.clear(); deckList.innerHTML = ''; D.sig = '';
+  const groups = new Map(CAT_ORDER.map((k) => [k, []]));
+  for (const c of D.cards) { if (!groups.has(c.category)) groups.set(c.category, []); groups.get(c.category).push(c); }
+  for (const [k, list] of groups) {
+    if (!list.length) continue; list.sort((a, b) => a.name.localeCompare(b.name));
+    const cat = CAT[k] || CAT.user; const sec = document.createElement('section'); sec.className = 'dk-group'; sec.dataset.cat = k; sec.style.setProperty('--c', cat.c);
+    sec.innerHTML = `<h5>${escH(cat.zh)}<span></span></h5>`; const grid = document.createElement('div'); grid.className = 'dk-grid'; sec.appendChild(grid);
+    for (const c of list) { const el = miniCard(c); el._card = c; if (prevNames && !prevNames.has(c.name) && !c.extra) el.classList.add('fresh'); D.els.set(c.name, el); grid.appendChild(el); }
+    deckList.appendChild(sec);
+  }
+  const chips = $('deckChips'); chips.innerHTML = '';
+  for (const k of ['all', ...[...groups.keys()].filter((k) => groups.get(k).length)]) {
+    const b = document.createElement('button'); b.type = 'button'; b.dataset.cat = k; b.setAttribute('aria-pressed', String(D.cat === k));
+    if (k !== 'all') b.style.setProperty('--c', (CAT[k] || CAT.user).c);
+    b.textContent = `${k === 'all' ? '全部' : (CAT[k] || CAT.user).zh} ${k === 'all' ? D.cards.length : groups.get(k).length}`; chips.appendChild(b);
+  }
+  applyDeckFilter(); syncDeck(true);
+}
+function applyDeckFilter() {
+  const q = D.q.trim().toLowerCase(); let shown = 0;
+  for (const sec of deckList.children) {
+    let n = 0;
+    for (const el of sec.querySelectorAll('.mc')) {
+      const c = el._card; const ok = (D.cat === 'all' || c.category === D.cat) && (!q || c.name.toLowerCase().includes(q) || (c.description || '').toLowerCase().includes(q)) && (!D.onlyPlayed || el.classList.contains('played'));
+      el.hidden = !ok; if (ok) n++;
+    }
+    sec.hidden = !n; sec.querySelector('h5 span').textContent = n; shown += n;
+  }
+  let empty = deckList.querySelector('.dk-empty');
+  if (!shown) { if (!empty) { empty = document.createElement('div'); empty.className = 'dk-empty'; deckList.appendChild(empty); } empty.textContent = D.cards.length ? '沒有符合的牌' : (D.source === 'none' ? '牌庫是空的（沒有連上本機 server）' : '牌庫載入中…'); } else if (empty) empty.remove();
+}
+// a played skill name → deck entry (exact, else same last segment: "plan" vs "my-plugin:plan")
+function deckResolve(name) {
+  if (D.els.has(name)) return name; const tail = String(name).split(':').pop();
+  const hits = D.cards.filter((c) => c.name.split(':').pop() === tail); return hits.length === 1 ? hits[0].name : null;
+}
+function syncDeck(force) {
+  const counts = new Map(); let plays = 0; const missing = [];
+  for (const c of M.cards) { if (c.kind !== 'skill') continue; plays++; const k = deckResolve(c.name); if (k) counts.set(k, (counts.get(k) || 0) + 1); else if (!missing.some((m) => m.name === c.name)) missing.push(c); }
+  if (missing.length && D.cards.length) { // loaded but not in the listing (e.g. built-in /command, or fs fallback missed it)
+    for (const c of missing) D.cards.push({ name: c.name, category: c.category || 'user', description: c.desc || '', source: 'played', extra: true });
+    renderDeck(D.seenNames); return;
+  }
+  const sig = plays + '|' + [...counts].map(([k, n]) => k + n).join(',');
+  if (!force && sig === D.sig) return; D.sig = sig; D.plays = plays; D.extras = D.cards.filter((c) => c.extra).length;
+  for (const [name, el] of D.els) { const n = counts.get(name) || 0; el.classList.toggle('played', n > 0); el.querySelector('.n').textContent = n > 1 ? '×' + n : n ? '1' : ''; }
+  const base = D.cards.length - D.extras;
+  $('deckTitle').textContent = `牌庫 ${base} 張`;
+  $('deckSub').textContent = `· 已出 ${plays} 張${D.extras ? ` · +${D.extras} 清單外` : ''}`;
+  $('deckNote').textContent = !D.cards.length ? '牌庫是空的：連上本機 server（node server.mjs）才會載入你自己的 skills。示範的「隨機抽一張」會用佔位牌。／Run the local server to load your own skills.' : D.source === 'transcript' ? `來源：transcript 的 skill_listing（L${D.info && D.info.initialLine || '?'}${D.info && D.info.deltas && D.info.deltas.length ? ` ＋ ${D.info.deltas.length} 次新增` : ''}）＝這個 session 真正能用的牌` : D.source === 'fs' ? '來源：掃描 ~/.claude/skills、commands、已啟用 plugin（transcript 裡沒有 skill_listing）' : D.source === 'snapshot' ? `來源：產生示範版時的本機 skill 清單快照（${base} 張）` : '';
+  if (D.onlyPlayed) applyDeckFilter();
+}
+deckList.addEventListener('click', (e) => {
+  const el = e.target.closest('.mc'); if (!el) return; const c = el._card;
+  if (M.mode === 'demo') { hideDeckTip(); demoCard(c.name); return; }
+  showDeckTip(c, el, true);
+});
+deckList.addEventListener('pointerover', (e) => { if (e.pointerType === 'touch' || deckTipPinned) return; const el = e.target.closest('.mc'); if (el) showDeckTip(el._card, el, false); });
+deckList.addEventListener('pointerout', (e) => { if (!deckTipPinned && e.target.closest('.mc') && !e.relatedTarget?.closest?.('.mc')) hideDeckTip(); });
+deckList.addEventListener('scroll', () => { if (!deckTipPinned) hideDeckTip(); }, { passive: true });
+$('deckChips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; D.cat = b.dataset.cat; for (const x of $('deckChips').children) x.setAttribute('aria-pressed', String(x === b)); applyDeckFilter(); });
+$('deckQ').addEventListener('input', (e) => { D.q = e.target.value; applyDeckFilter(); });
+$('deckPlayed').addEventListener('change', (e) => { D.onlyPlayed = e.target.checked; applyDeckFilter(); });
+let deckTipPinned = false;
+function showDeckTip(c, el, pin) {
+  const cat = CAT[c.category] || CAT.user; const n = M.cards.filter((x) => x.kind === 'skill' && deckResolve(x.name) === c.name).length;
+  tip.innerHTML = `<div class="cat" style="color:${cat.c}">${escH(cat.label)}</div><h4>${escH(c.name)}</h4><p>${escH(c.description || '（清單裡沒有描述）')}</p><dl class="kv"><dt>已出</dt><dd>${n} 次</dd><dt>來源</dt><dd>${c.extra ? '清單外（實際載入過）' : c.source === 'transcript' ? 'skill_listing' : c.source === 'fs' ? '檔案掃描' : c.source || '-'}</dd></dl>${M.mode === 'demo' ? '<div class="note">點一下＝把這張丟進缸</div>' : ''}`;
+  tip.style.display = 'block'; tip.classList.toggle('pinned', !!pin); deckTipPinned = !!pin; pinned = null;
+  const r = el.getBoundingClientRect(); const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = r.left - tw - 10; if (x < 8) x = clamp(r.left, 8, innerWidth - tw - 8);
+  let y = x === r.left - tw - 10 ? r.top : r.top - th - 10; if (y < 8) y = r.bottom + 10;
+  tip.style.left = clamp(x, 8, innerWidth - tw - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - th - 8) + 'px';
+}
+function hideDeckTip() { if (pinned) return; deckTipPinned = false; tip.classList.remove('pinned'); tip.style.display = 'none'; }
+document.addEventListener('pointerdown', (e) => { if (deckTipPinned && !e.target.closest('#tip') && !e.target.closest('.mc')) hideDeckTip(); });
+
+// Draw: lift the card out of its slot (or out of the pile icon when the panel is collapsed / the card is filtered out),
+// grow it into the full card face, then hand over to the 3D card at the same screen spot (see handoff()).
+function deckDraw(card, v) {
+  if (!D.cards.length || document.hidden) return null;
+  syncDeck(); // make sure an unlisted skill gets its "清單外" slot first
+  const key = deckResolve(card.name); let el = key ? D.els.get(key) : null; let src = 'card';
+  if (!el || !deckOpen() || el.hidden || !el.offsetParent) { el = null; src = 'panel'; }
+  let r;
+  if (el) {
+    const lr = deckList.getBoundingClientRect(); r = el.getBoundingClientRect();
+    if (r.top < lr.top + 22 || r.bottom > lr.bottom) { deckList.scrollTop += (r.top - lr.top) - (lr.height - r.height) / 2; r = el.getBoundingClientRect(); }
+  } else r = $('deckPile').getBoundingClientRect();
+  const srcRect = { x: r.left, y: r.top, w: r.width, h: r.height };
+  const cr = renderer.domElement.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const H1 = clamp(cr.height * 0.21, 110, 200), W1 = H1 * 512 / 716;          // final ghost size ≈ 3D card size at hand-off
+  const tx = cr.left + cr.width / 2, ty = cr.top + cr.height * 0.4;
+  const k = src === 'card' ? 0.3 : 0.38;
+  const end = { x: lerp(cx, tx, k), y: clamp(lerp(cy, ty, k) - 24, cr.top + H1 * 0.55, cr.bottom - H1 * 0.2), h: H1 };
+  const H0 = src === 'card' ? r.height : 64, W0 = H0 * 5 / 7; const s0 = H0 / H1;
+  // ghost = the very face texture the 3D card will wear, plus the mini card cross-fading out on top
+  const g = document.createElement('div'); g.className = 'ghost'; g.style.setProperty('--c', (CAT[card.category] || CAT.user).c);
+  Object.assign(g.style, { left: (cx - W1 / 2) + 'px', top: (cy - H1 / 2) + 'px', width: W1 + 'px', height: H1 + 'px', borderRadius: (H1 * 0.047) + 'px' });
+  const face = v.front.material.map.image; const fc = document.createElement('canvas'); fc.width = 256; fc.height = 358; fc.getContext('2d').drawImage(face, 0, 0, 256, 358);
+  Object.assign(fc.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', opacity: '0' }); g.appendChild(fc);
+  const mini = miniCard({ ...card, category: card.category }); mini.classList.remove('extra');
+  Object.assign(mini.style, { position: 'absolute', left: '0', top: '0', width: W0 + 'px', height: H0 + 'px', transformOrigin: '0 0', transform: `scale(${W1 / W0},${H1 / H0})`, aspectRatio: 'auto' }); g.appendChild(mini);
+  document.body.appendChild(g);
+  const dur = 0.62; const dx = end.x - cx, dy = end.y - cy;
+  g.animate([{ transform: `translate(0,0) scale(${s0})` }, { transform: `translate(${dx * 0.12}px,${-16 - Math.abs(dy) * 0.05}px) scale(${s0 + (1 - s0) * 0.35}) rotate(-5deg)`, offset: 0.32 }, { transform: `translate(${dx}px,${dy}px) scale(1) rotate(0deg)` }], { duration: dur * 1000, easing: 'cubic-bezier(.33,.8,.3,1)', fill: 'forwards' });
+  fc.animate([{ opacity: 0 }, { opacity: 0, offset: 0.12 }, { opacity: 1, offset: 0.55 }, { opacity: 1 }], { duration: dur * 1000, fill: 'forwards' });
+  mini.animate([{ opacity: 1 }, { opacity: 1, offset: 0.12 }, { opacity: 0, offset: 0.55 }, { opacity: 0 }], { duration: dur * 1000, fill: 'forwards' });
+  if (el) { el._drawing = (el._drawing || 0) + 1; el.classList.add('drawing'); }
+  else { const p = $('deckPile'); p.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-4px) scale(1.15)' }, { transform: 'translateY(0)' }], { duration: 380 }); }
+  return { dur, end, src, srcRect, ghost: g, el };
+}
+function endDraw(v, fade) {
+  const d = v.draw; if (!d) return; v.draw = null; v.grp.visible = true;
+  if (d.el && --d.el._drawing <= 0) { d.el.classList.remove('drawing'); d.el._drawing = 0; }
+  if (d.ghost) { if (fade) { const a = d.ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, fill: 'forwards' }); a.onfinish = () => d.ghost.remove(); } else d.ghost.remove(); }
+}
+// layout: right column ends above the chart; on phones the open drawer pushes the 3D view up instead of covering the tank
+const mqPhone = matchMedia('(max-width:600px)');
+function layoutDeck() {
+  const ct = $('chartP').getBoundingClientRect(); document.documentElement.style.setProperty('--rcBottom', Math.max(40, innerHeight - ct.top + 10) + 'px');
+  const phoneOpen = mqPhone.matches && deckOpen(); document.body.classList.toggle('deck-open', phoneOpen);
+  const b = phoneOpen ? deckEl.getBoundingClientRect().height + 'px' : ''; if (stage.style.bottom !== b) stage.style.bottom = b;
+}
+new ResizeObserver(layoutDeck).observe($('chartP')); new ResizeObserver(layoutDeck).observe(deckEl); addEventListener('resize', layoutDeck);
+deckHead.addEventListener('click', () => requestAnimationFrame(layoutDeck));
+
+/* ---------- overrides ---------- */
+$('selLimit').onchange = (e) => { limOverride = e.target.value; $('limCustom').hidden = limOverride !== 'custom'; onLimitChange(); };
+$('limCustom').oninput = onLimitChange;
+$('selThr').onchange = (e) => { thrOverride = e.target.value; onLimitChange(); };
+function onLimitChange() { drawLabels(); if (!V.compactAnim) V.target = M.ctx / effLimit(); updateHud(); drawChart(); }
+
+/* ---------- picking / tooltip ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); const tip = $('tip'); let pinned = null, hoverId = null;
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera); const fronts = [...V.cards.values()].filter((v) => v.state !== 'draw').flatMap((v) => [v.front, v.back]);
+  const hit = ray.intersectObjects(fronts, false)[0]; if (!hit) return null;
+  for (const v of V.cards.values()) if (v.front === hit.object || v.back === hit.object) return v; return null;
+}
+function showTip(v, x, y) {
+  const c = v.card; const cat = CAT[c.category] || CAT.user;
+  const rows = c.kind === 'summary'
+    ? `<dt>壓縮前</dt><dd>${fmtK(c.pre)}</dd><dt>壓縮後</dt><dd>${fmtK(c.post)}</dd><dt>觸發</dt><dd>${c.trigger}</dd><dt>保留 skill</dt><dd>${(c.keptNames || []).join(', ') || '（無）'}</dd><dt>時間</dt><dd>${fmtTime(c.t)}</dd>`
+    : `<dt>載入時間</dt><dd>${fmtTime(c.t)}</dd><dt>Δ context</dt><dd>${c.delta == null ? '（等下一則回覆）' : (c.delta >= 0 ? '+' : '') + c.delta.toLocaleString()}</dd><dt>估計 token</dt><dd>≈${fmtK(c.est)}</dd><dt>載入當下</dt><dd>${fmtK(c.ctxBefore)}</dd><dt>方式</dt><dd>${c.source === 'slash' ? '/' + c.name + ' 指令' : 'Skill 工具'}</dd>${c.line ? `<dt>行號</dt><dd>L${c.line}</dd>` : ''}${c.survived ? `<dt>撐過壓縮</dt><dd>${c.survived} 次</dd>` : ''}`;
+  const esc = (s) => String(s || '').replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+  tip.innerHTML = `<div class="cat" style="color:${cat.c}">${cat.label}</div><h4>${esc(c.name)}</h4><p>${esc(c.desc || c.preview || '')}</p><dl class="kv">${rows}</dl>${c.dir ? `<div class="note">${esc(c.dir)}</div>` : ''}`;
+  tip.style.display = 'block'; const tw = tip.offsetWidth, th = tip.offsetHeight;
+  tip.style.left = clamp(x + 16, 8, innerWidth - tw - 8) + 'px'; tip.style.top = clamp(y + 12, 8, innerHeight - th - 8) + 'px';
+}
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointermove', (e) => { if (pinned || e.pointerType === 'touch') return; const v = pick(e); hoverId = v ? v.card.id : null; if (v) showTip(v, e.clientX, e.clientY); else tip.style.display = 'none'; renderer.domElement.style.cursor = v ? 'pointer' : ''; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return; const v = pick(e);
+  if (v) { pinned = v.card.id; tip.classList.add('pinned'); showTip(v, e.clientX, e.clientY); } else { pinned = null; tip.classList.remove('pinned'); tip.style.display = 'none'; }
+});
+
+/* ---------- composer / resize / loop ---------- */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.45, 2.0); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+function resize() { const w = stage.clientWidth || innerWidth, h = stage.clientHeight || innerHeight; renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); if (!userMoved) { camera.position.copy(controls.target).addScaledVector(camOffset, Math.max(1, 1.55 / camera.aspect) ** 0.85); } pMat.uniforms.uScale.value = h * 1.5; drawChart(); }
+new ResizeObserver(resize).observe(stage); resize();
+
+let last = performance.now(), hudT = 0, frames = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; clock += dt; frames++;
+  stepReplay(dt); stepCompact(dt); stepWater(dt); stepCards(dt); stepParticles(dt);
+  controls.update(); composer.render();
+  hudT += dt; if (hudT > 0.2) { hudT = 0; updateHud(); if (replay) drawChart(); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- test hooks ---------- */
+window.__tank = {
+  M, V, version: VERSION,
+  stats: () => ({ skillCards: M.cards.filter((c) => c.kind === 'skill').length, aliveSkill: M.cards.filter((c) => c.alive && c.kind === 'skill').length, summaries: M.cards.filter((c) => c.kind === 'summary' && c.alive).length, meshes: V.cards.size, meshSkill: [...V.cards.values()].filter((v) => v.card.kind === 'skill').length, level: V.level, target: V.target, ctx: M.ctx, limit: effLimit(), threshold: effThreshold(), compactions: M.compactions, events: M.events.length, applied: M.applied, compactAnim: !!V.compactAnim, frames, mode: M.mode, session: M.session && M.session.id }),
+  demo: { card: demoCard, water: demoWater, compact: demoCompact, auto: setAuto }, startReplay, stopReplay, seekTo, connect,
+  tankRect: () => { const xs = [], ys = []; for (const x of [-1, 1]) for (const y of [0, RIM]) for (const z of [-1, 1]) { const q = worldToScreen(new THREE.Vector3(x * (IW / 2 + G), y, z * (ID / 2 + G))); xs.push(q.x); ys.push(q.y); } return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) }; },
+  deck: { D, lastDraw: () => lastDraw, rect: (name) => { const el = D.els.get(name); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, played: el.classList.contains('played'), drawing: el.classList.contains('drawing'), count: el.querySelector('.n').textContent }; }, stats: () => ({ deck: D.cards.length - D.cards.filter((c) => c.extra).length, extras: D.cards.filter((c) => c.extra).length, plays: D.plays, playedSlots: [...D.els.values()].filter((e) => e.classList.contains('played')).length, source: D.source, open: deckOpen(), ghosts: document.querySelectorAll('.ghost').length }) },
+};
+
+/* ---------- boot ---------- */
+drawLabels();
+(async () => {
+  if (DEMO_ONLY || Q.has('demo') || location.protocol === 'file:') { startDemo(!Q.has('still') && (DEMO_ONLY || Q.has('auto'))); return; }
+  try {
+    sessions = await fetchSessions(); M.mode = 'live';
+    const want = Q.get('session');
+    if (want) $('follow').checked = false;
+    fillSessionSelect(); connect(want || (sessions.find((s) => !s.test) || sessions[0] || {}).id);
+    $('demoCtl').hidden = !Q.has('demoButtons');
+    followTimer = setInterval(() => followCheck(false), 4000);
+  } catch (err) { console.warn('no server, demo mode', err); startDemo(true); }
+})();
+</script>
+</body>
+</html>

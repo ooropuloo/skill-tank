@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%222%22 y=%223%22 width=%2212%22 height=%2211%22 rx=%221%22 fill=%22%231aa6b8%22/%3E%3C/svg%3E">
+<title>Skill 水缸 · 牌桌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: full-bleed 3D card table (one glass tank per Claude Code session, skill deck fanned at the table edge);
+   a collapsible "水位面板" docks on the right like a motor panel; labels float over the tanks. Single dark look. */
+:root{
+  --felt-deep:#08201c; --wood:#3b261a; --ink:#e9efe9; --ink-dim:#9db5ad;
+  --water:#3fb6cf; --card:#f2e9d3; --gold:#c9a24e; --warn:#f0a53a; --spill:#e5534b; --panel:rgba(7,22,20,.86);
+  --f-display:'Chakra Petch','Noto Sans TC',ui-sans-serif,system-ui,sans-serif;
+  --f-body:'Noto Sans TC','PingFang TC','Microsoft JhengHei',ui-sans-serif,system-ui,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--felt-deep);color:var(--ink);font-family:var(--f-body);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding-block:9px;padding-inline:16px;background:linear-gradient(180deg,#2c1c13,var(--wood));border-bottom:2px solid #1d120c;position:relative;z-index:3}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand h1{margin:0;font:700 19px/1 var(--f-display);letter-spacing:.04em;color:var(--card)}
+.brand span{font-size:12px;color:#c8b393}
+.pill{display:inline-flex;align-items:center;gap:6px;font:600 12px/1 var(--f-display);letter-spacing:.06em;padding:6px 10px;border-radius:999px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12)}
+.pill i{width:8px;height:8px;border-radius:50%;background:#7a8a85}
+.pill.live i{background:#57d68d;box-shadow:0 0 8px #57d68d}.pill.demo i{background:var(--warn)}.pill.wait i{background:#7a8a85}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+button{font:600 13px/1 var(--f-body);color:var(--card);background:rgba(0,0,0,.28);border:1px solid rgba(242,233,211,.28);border-radius:8px;padding:8px 11px;cursor:pointer}
+button:hover{border-color:var(--gold);color:#fff}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button[aria-pressed="true"]{background:rgba(201,162,78,.25);border-color:var(--gold)}
+main{flex:1;position:relative;min-height:0}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tl{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.tl b{display:block;font:700 15px/1.2 var(--f-display);color:var(--card);max-width:min(48vw,360px);overflow:hidden;text-overflow:ellipsis;margin-inline:auto}
+.tl b i,.row .top b i{font-style:normal;color:var(--gold)}
+.tl small{font:500 11px/1.3 var(--f-display);color:var(--ink-dim)}
+.pl{position:absolute;transform:translate(-50%,0);white-space:nowrap;display:flex;align-items:baseline;gap:8px;background:rgba(5,16,15,.72);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:4px 10px}
+.pl strong{font:700 20px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.pl span{font:500 11px/1.35 var(--f-display);color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.pl span em{font-style:normal;color:var(--ink)}
+.cl{position:absolute;transform:translate(0,-100%);font:600 10px/1 var(--f-display);color:var(--spill);text-shadow:0 1px 2px #000}
+.bn{position:absolute;transform:translate(-50%,-50%) rotate(-4deg);font:900 18px/1 var(--f-body);color:#fff;background:rgba(229,83,75,.94);padding:10px 16px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+#panel{position:absolute;top:12px;right:12px;width:290px;max-height:calc(100% - 24px);display:flex;flex-direction:column;background:var(--panel);border:1px solid rgba(255,255,255,.09);border-radius:12px;backdrop-filter:blur(6px);z-index:2}
+#panel>header{background:none;border:0;padding:8px 10px 8px 14px;display:flex;align-items:center;gap:8px}
+#panel h2{margin:0;font:600 12px/1 var(--f-display);letter-spacing:.14em;color:var(--ink-dim);flex:1}
+#panel .body{overflow:auto;padding:0 10px 10px;display:flex;flex-direction:column;gap:10px;min-height:0}
+#panel.collapsed{width:auto}#panel.collapsed .body{display:none}
+.row{display:grid;gap:5px;padding:9px 10px;border-radius:9px;background:rgba(255,255,255,.035);border:1px solid transparent;cursor:pointer;text-align:left;color:inherit;font:inherit;width:100%}
+.row.sel{border-color:rgba(201,162,78,.6);background:rgba(201,162,78,.08)}
+.row .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;min-width:0}
+.row .top b{font:700 13px/1.2 var(--f-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .top span{font:500 11px/1 var(--f-display);color:var(--ink-dim);white-space:nowrap}
+.bar{position:relative;height:8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:visible}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;opacity:.85}
+.bar s{position:absolute;top:-2px;bottom:-2px;width:0;border-left:2px dashed var(--spill)}
+.row .meta{display:flex;justify-content:space-between;font:500 11px/1.2 var(--f-display);color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.row input[type=range]{width:100%;accent-color:var(--gold)}
+.row label{font-size:11px;color:var(--ink-dim)}
+#log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:12px}
+#log li{display:grid;grid-template-columns:38px 1fr auto;gap:6px;align-items:baseline}
+#log time,#log b{font-family:var(--f-display);font-variant-numeric:tabular-nums}
+#log time{color:var(--ink-dim)}#log b{color:var(--water);font-weight:600}#log li.c b{color:var(--spill)}
+#log li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub{font:600 11px/1 var(--f-display);letter-spacing:.12em;color:var(--ink-dim);margin:2px 2px 0}
+.keys{font-size:11px;color:var(--ink-dim);line-height:1.6}
+.keys kbd{font:600 10px/1 var(--f-display);border:1px solid rgba(255,255,255,.2);border-bottom-width:2px;border-radius:4px;padding:1px 4px;color:var(--ink)}
+#hint{position:absolute;left:14px;bottom:12px;font-size:12px;color:var(--ink-dim);background:var(--panel);padding:6px 10px;border-radius:8px;z-index:2;max-width:calc(100% - 28px)}
+#loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-dim);font:500 14px var(--f-body)}
+.nav{font:600 12px/1 var(--f-body);color:var(--card);text-decoration:none;border:1px solid rgba(242,233,211,.28);border-radius:8px;padding:7px 10px;background:rgba(0,0,0,.28);white-space:nowrap}
+.nav:hover{border-color:var(--gold);color:#fff}.nav:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.tl a{pointer-events:auto;color:inherit;text-decoration:none;display:block}.tl a[href]:hover b{text-decoration:underline;text-decoration-color:var(--gold)}
+.tl a[href] b::after{content:" \2197";font-size:.8em;color:var(--gold)}
+#ver{position:absolute;right:12px;bottom:10px;font:500 10px/1 var(--f-display);color:var(--ink-dim);opacity:.75;z-index:2;pointer-events:none}
+@media (max-width:760px){.brand span{display:none}#panel{width:min(290px,calc(100% - 24px))}.brand h1{font-size:16px}header{padding-inline:12px}.ctrls{margin-left:0}#hint{bottom:28px}}
+@media (prefers-reduced-motion:reduce){.bn{transform:translate(-50%,-50%)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><h1>Skill 水缸 · 牌桌</h1><span>全部 session 一桌看：每個 session 一個缸，水位就是它的 context</span></div>
+  <a id="toSingle" class="nav" href="../" hidden title="單一 session 深入看：牌庫、context 曲線、回放">單一 session ↗</a>
+  <div id="conn" class="pill wait"><i></i><span>連線中…</span></div>
+  <div class="ctrls">
+    <button id="bFolder" type="button" hidden>開啟資料夾</button>
+    <span id="demoCtrls" class="ctrls" hidden>
+      <button id="bThrow" type="button">丟一張牌</button>
+      <button id="bChat" type="button">聊一輪</button>
+      <button id="bCompact" type="button">觸發壓縮</button>
+      <button id="bAuto" type="button" aria-pressed="true">自動播放</button>
+    </span>
+  </div>
+</header>
+<main>
+  <canvas id="gl" aria-label="3D 牌桌：每個玻璃缸是一個 Claude Code session，水位是已用 context，缸底的卡牌是載入過的 skill"></canvas>
+  <div id="loading">載入 3D 場景…</div>
+  <div id="labels"></div>
+  <section id="panel" aria-label="水位面板">
+    <header><h2>水位面板</h2><button id="bPanel" type="button" aria-expanded="true">收起</button></header>
+    <div class="body">
+      <div id="rows"></div>
+      <div class="sub">出牌紀錄</div>
+      <ol id="log"></ol>
+      <div class="keys"><kbd>A</kbd>/<kbd>←</kbd> <kbd>D</kbd>/<kbd>→</kbd> 切換魚缸　<kbd>F</kbd> 鏡頭跟隨　拖曳旋轉、滾輪縮放<span class="demoOnly"><br><kbd>Space</kbd> 丟牌　<kbd>C</kbd> 壓縮　點手牌丟進目前的缸</span></div>
+    </div>
+  </section>
+  <div id="ver">skill-tank table build 2026-10-02 r4</div>
+  <div id="hint" hidden>示範資料：沒有連上 Claude Code，畫面上的 session 與數字都是模擬的</div>
+</main>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ---------------- utils ----------------
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)), lerp=(a,b,u)=>a+(b-a)*u, ease=u=>1-Math.pow(1-clamp(u),3);
+const now=()=>performance.now()/1000;
+function hash(s){let h=2166136261;for(const c of String(s)){h^=c.codePointAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function rng(seed){let s=seed>>>0||1;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return(s>>>0)/4294967296}}
+const fmtK=n=>n>=100000?(n/1000).toFixed(0)+'k':n>=1000?(n/1000).toFixed(1)+'k':String(Math.round(n));
+const hueOf=name=>hash(name)%360;
+const SOURCE_LABEL={personal:'個人',user:'個人',project:'專案',plugin:'外掛',command:'指令',builtin:'內建',unknown:'未知'};
+const pctColor=p=>p<.6?'#3fb6cf':p<.85?'#f0a53a':'#e5534b';
+const mobile=()=>innerWidth<760;
+
+// ---------------- renderer / scene (寫實光影) ----------------
+const canvas=document.getElementById('gl');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=0.95;
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x07191a); scene.fog=new THREE.Fog(0x07191a,14,34);
+const pmrem=new THREE.PMREMGenerator(renderer); scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture; scene.environmentIntensity=0.55;
+const camera=new THREE.PerspectiveCamera(38,1,0.05,80); camera.position.set(0,3.4,6.9);
+const controls=new OrbitControls(camera,canvas); controls.enableDamping=true; controls.target.set(0,0.55,0.5);
+controls.minDistance=2.4; controls.maxDistance=14; controls.maxPolarAngle=Math.PI*0.49; controls.enablePan=false;
+const hemi=new THREE.HemisphereLight(0xcfe8ff,0x1b2a20,0.35); scene.add(hemi);
+const key=new THREE.DirectionalLight(0xfff1de,2.2); key.position.set(-4,8,5); key.castShadow=true;
+key.shadow.mapSize.set(2048,2048); Object.assign(key.shadow.camera,{left:-10,right:10,top:8,bottom:-6,near:1,far:30}); key.shadow.bias=-0.0004; key.shadow.normalBias=0.02;
+scene.add(key); scene.add(key.target);
+const rim=new THREE.DirectionalLight(0x7fd8ff,0.7); rim.position.set(5,3,-6); scene.add(rim);
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(256,256),0.22,0.45,0.97); composer.addPass(bloom); // 高門檻：只讓高光發亮，避免外殼整片發光
+composer.addPass(new OutputPass());
+
+// ---------------- table ----------------
+function noiseTex(base,amp,size=256,seed=3){const c=document.createElement('canvas');c.width=c.height=size;const g=c.getContext('2d');g.fillStyle=base;g.fillRect(0,0,size,size);const r=rng(seed);
+  for(let i=0;i<size*size*.35;i++){const v=r();g.fillStyle=v<.5?`rgba(0,0,0,${amp*r()})`:`rgba(255,255,255,${amp*.6*r()})`;g.fillRect(r()*size,r()*size,1,1)}
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.colorSpace=THREE.SRGBColorSpace;return t}
+const feltTex=noiseTex('#123f36',.14); feltTex.repeat.set(10,6);
+const felt=new THREE.Mesh(new THREE.PlaneGeometry(60,30),new THREE.MeshStandardMaterial({map:feltTex,roughness:1,metalness:0,envMapIntensity:.25}));
+felt.rotation.x=-Math.PI/2; felt.receiveShadow=true; scene.add(felt);
+const woodTex=noiseTex('#5a3a24',.25,256,9); woodTex.repeat.set(12,1);
+const rail=new THREE.Mesh(new THREE.BoxGeometry(60,0.12,0.5),new THREE.MeshStandardMaterial({map:woodTex,roughness:.55,metalness:0,envMapIntensity:.6}));
+rail.position.set(0,0.06,3.05); rail.receiveShadow=rail.castShadow=true; scene.add(rail);
+
+// ---------------- card textures (照圖拆零件：卡框、費用寶石、插圖窗、名稱、說明、來源) ----------------
+const texCache=new Map();
+function rr(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+function fit(g,t,maxW,size,weight,font){let s=size;g.font=`${weight} ${s}px ${font}`;while(s>8&&g.measureText(t).width>maxW){s--;g.font=`${weight} ${s}px ${font}`}}
+function cardFace(d){const key=d.name+'|'+d.tokens+'|'+d.source+'|'+(d.desc||'');if(texCache.has(key))return texCache.get(key);
+  const W=320,H=448,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');const hue=hueOf(d.name);
+  rr(g,4,4,W-8,H-8,22);g.fillStyle='#f2e9d3';g.fill();g.lineWidth=7;g.strokeStyle='#c9a24e';g.stroke();
+  const ix=22,iw=W-44,ay=86,ah=180;rr(g,ix,ay,iw,ah,12);g.save();g.clip();
+  const gr=g.createLinearGradient(0,ay,0,ay+ah);gr.addColorStop(0,`hsl(${hue} 62% 62%)`);gr.addColorStop(1,`hsl(${(hue+40)%360} 60% 30%)`);g.fillStyle=gr;g.fillRect(ix,ay,iw,ah);
+  const r=rng(hash(d.name));const k=3+Math.floor(r()*5),cx=W/2,cy=ay+ah*.55,R=ah*.38;g.strokeStyle=`hsla(${hue} 90% 92% / .9)`;g.lineWidth=4;
+  for(let ring=0;ring<3;ring++){g.beginPath();const rad=R*(1-ring*.28),rot=r()*6;for(let i=0;i<=k;i++){const t=rot+i/k*Math.PI*2;const px=cx+Math.cos(t)*rad,py=cy+Math.sin(t)*rad;i?g.lineTo(px,py):g.moveTo(px,py)}g.stroke()}
+  g.fillStyle='#fff';g.beginPath();g.arc(cx,cy,R*.15,0,7);g.fill();g.globalAlpha=.5;g.lineWidth=2;
+  for(let i=0;i<4;i++){g.beginPath();for(let x=0;x<=iw;x+=6){const y=ay+ah*(.2+i*.22)+Math.sin(x*.06+i)*4;x?g.lineTo(ix+x,y):g.moveTo(ix,y)}g.stroke()}g.restore();
+  g.fillStyle='#2a1d14';g.textBaseline='middle';g.textAlign='left';fit(g,d.name,W-128,36,700,"'Chakra Petch','Noto Sans TC',sans-serif");g.fillText(d.name,104,48);
+  g.beginPath();g.arc(60,48,40,0,7);const gg=g.createRadialGradient(48,36,4,60,48,40);gg.addColorStop(0,'#86e8f5');gg.addColorStop(1,'#0f5a73');g.fillStyle=gg;g.fill();g.lineWidth=5;g.strokeStyle='#f2e9d3';g.stroke();
+  g.fillStyle='#fff';g.textAlign='center';fit(g,fmtK(d.tokens),66,30,700,"'Chakra Petch',sans-serif");g.fillText(fmtK(d.tokens),60,50);
+  g.textAlign='left';g.textBaseline='top';g.fillStyle='#3a2c20';g.font="500 19px 'Noto Sans TC',sans-serif";
+  const desc=d.desc||'載入這個 skill 會把它的說明倒進 context。';let line='',y=ay+ah+16,n=0;
+  for(const ch of desc){if(g.measureText(line+ch).width>iw){g.fillText(line,ix,y);y+=26;line=ch;if(++n===4)break}else line+=ch}if(n<4&&line)g.fillText(line,ix,y);
+  g.textAlign='center';g.textBaseline='middle';g.fillStyle=`hsl(${hue} 40% 30%)`;g.font="600 18px 'Chakra Petch','Noto Sans TC',sans-serif";g.fillText(`${SOURCE_LABEL[d.source]||d.source} · SKILL · 約 ${fmtK(d.tokens)} tokens`,W/2,H-30);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=renderer.capabilities.getMaxAnisotropy();texCache.set(key,t);return t}
+const backTex=(()=>{const W=320,H=448,c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');rr(g,4,4,W-8,H-8,22);g.fillStyle='#173f39';g.fill();g.lineWidth=7;g.strokeStyle='#c9a24e';g.stroke();
+  g.strokeStyle='rgba(201,162,78,.5)';g.lineWidth=2;for(let i=-H;i<W;i+=18){g.beginPath();g.moveTo(i,20);g.lineTo(i+H,H-20);g.stroke()}
+  g.fillStyle='#f2e9d3';g.font="700 44px 'Chakra Petch',sans-serif";g.textAlign='center';g.textBaseline='middle';g.fillText('SKILL',W/2,H/2);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t})();
+const CARD_W=0.42,CARD_H=0.588,CARD_T=0.008;
+const cardGeo=new THREE.BoxGeometry(CARD_W,CARD_H,CARD_T);
+function makeCard(d){const edge=new THREE.MeshStandardMaterial({color:0xd9c79e,roughness:.6});
+  const face=new THREE.MeshStandardMaterial({map:cardFace(d),color:0xd8d2c4,roughness:.75,metalness:0,envMapIntensity:.15});
+  const back=new THREE.MeshStandardMaterial({map:backTex,color:0xd8d2c4,roughness:.75,envMapIntensity:.15});
+  const m=new THREE.Mesh(cardGeo,[edge,edge,edge,edge,face,back]);m.castShadow=true;m.receiveShadow=true;m.userData.d=d;return m}
+
+// ---------------- tank (玻璃缸：基本形狀拼裝) ----------------
+const TW=2.2,TH=1.6,TD=1.3,SPACING=3.0;
+const glassMat=new THREE.MeshPhysicalMaterial({color:0xcfeff3,roughness:.02,metalness:0,transparent:true,opacity:.08,envMapIntensity:.22,specularIntensity:.35,depthWrite:false,side:THREE.FrontSide});
+const frameMat=new THREE.MeshStandardMaterial({color:0x2b1c14,roughness:.45,metalness:.2,envMapIntensity:.8});
+const brassMat=new THREE.MeshStandardMaterial({color:0xc9a24e,roughness:.3,metalness:1,envMapIntensity:1.2});
+function buildTank(){const grp=new THREE.Group();
+  const add=(geo,mat,x,y,z,ro)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);if(ro!=null)m.renderOrder=ro;m.castShadow=mat!==glassMat;m.receiveShadow=true;grp.add(m);return m};
+  add(new THREE.BoxGeometry(TW,TH,0.02),glassMat,0,TH/2,TD/2,6);add(new THREE.BoxGeometry(TW,TH,0.02),glassMat,0,TH/2,-TD/2,6);
+  add(new THREE.BoxGeometry(0.02,TH,TD),glassMat,TW/2,TH/2,0,6);add(new THREE.BoxGeometry(0.02,TH,TD),glassMat,-TW/2,TH/2,0,6);
+  add(new THREE.BoxGeometry(TW+0.24,0.14,TD+0.24),frameMat,0,-0.05,0);add(new THREE.BoxGeometry(TW+0.26,0.02,TD+0.26),brassMat,0,0.03,0);
+  for(const sx of[-1,1])for(const sz of[-1,1])add(new THREE.BoxGeometry(0.05,TH,0.05),frameMat,sx*TW/2,TH/2,sz*TD/2);
+  for(const sz of[-1,1])add(new THREE.BoxGeometry(TW+0.06,0.05,0.05),frameMat,0,TH,sz*TD/2);
+  for(const sx of[-1,1])add(new THREE.BoxGeometry(0.05,0.05,TD+0.06),frameMat,sx*TW/2,TH,0);
+  // sand floor
+  const sand=add(new THREE.BoxGeometry(TW-0.04,0.04,TD-0.04),new THREE.MeshStandardMaterial({color:0xcbb68a,roughness:.95}),0,0.02,0);
+  // water body + surface (heightfield)
+  const bodyMat=new THREE.MeshPhysicalMaterial({color:0x1f8fae,roughness:.1,metalness:0,transparent:true,opacity:.42,envMapIntensity:.3,specularIntensity:.3,depthWrite:false});
+  const body=add(new THREE.BoxGeometry(TW-0.04,1,TD-0.04),bodyMat,0,0.5,0,3);body.castShadow=false;
+  const sGeo=new THREE.PlaneGeometry(TW-0.04,TD-0.04,44,26);sGeo.rotateX(-Math.PI/2);
+  const surfMat=new THREE.MeshPhysicalMaterial({color:0x3fb6cf,roughness:.08,metalness:0,transparent:true,opacity:.7,envMapIntensity:.9,depthWrite:false,side:THREE.DoubleSide});
+  const surf=add(sGeo,surfMat,0,0.5,0,5);surf.castShadow=false;
+  // compaction line on front glass (dashed red)
+  const lineGrp=new THREE.Group();grp.add(lineGrp);const dashMat=new THREE.MeshBasicMaterial({color:0xe5534b});
+  for(let x=-TW/2+0.06;x<TW/2-0.05;x+=0.14){const m=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.012,0.005),dashMat);m.position.set(x+0.04,0,TD/2+0.013);lineGrp.add(m)}
+  // puddle on felt
+  const puddle=new THREE.Mesh(new THREE.CircleGeometry(1,40),new THREE.MeshPhysicalMaterial({color:0x5ab4d2,roughness:.05,transparent:true,opacity:0,clearcoat:1,depthWrite:false}));
+  puddle.rotation.x=-Math.PI/2;puddle.position.y=0.004;puddle.scale.set(1.6,1.1,1);puddle.renderOrder=2;grp.add(puddle);
+  // dye layers group
+  const dye=new THREE.Group();grp.add(dye);
+  // fish (cone + sphere, geometric)
+  const fish=[];const r=rng(7);
+  for(let i=0;i<3;i++){const f=new THREE.Group();const col=[0xff7a2f,0xffb21a,0x3fa9ff][i];const m=new THREE.MeshStandardMaterial({color:col,roughness:.35,metalness:.1});
+    const b=new THREE.Mesh(new THREE.SphereGeometry(0.06,16,12),m);b.scale.set(1.5,1,.7);f.add(b);
+    const tail=new THREE.Mesh(new THREE.ConeGeometry(0.045,0.08,4),m);tail.rotation.z=Math.PI/2;tail.position.x=-0.11;f.add(tail);
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.009,8,6),new THREE.MeshStandardMaterial({color:0x111111,roughness:.2}));eye.position.set(0.06,0.015,0.03);f.add(eye);
+    f.userData={x:(r()-.5)*1.4,y:.3+r()*.5,z:(r()-.5)*.6,vx:(r()<.5?-1:1)*(.18+r()*.15),ph:r()*6,tail};grp.add(f);fish.push(f)}
+  return{grp,body,surf,sGeo,lineGrp,puddle,dye,fish}}
+
+// ---------------- particles (frustumCulled=false：否則粒子永遠被剔除) ----------------
+function pool(n,color,size,opacity){const geo=new THREE.BufferGeometry();const pos=new Float32Array(n*3).fill(-999);geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({color,size,transparent:true,opacity,depthWrite:false,sizeAttenuation:true});const p=new THREE.Points(geo,mat);p.frustumCulled=false;p.renderOrder=7;scene.add(p);
+  return{p,pos,vel:new Float32Array(n*3),life:new Float32Array(n),n,i:0}}
+const drops=pool(500,0xc8f2ff,0.05,.9), bubbles=pool(400,0xe0faff,0.035,.7);
+function emit(P,x,y,z,vx,vy,vz,life){const i=P.i;P.i=(P.i+1)%P.n;P.pos[i*3]=x;P.pos[i*3+1]=y;P.pos[i*3+2]=z;P.vel[i*3]=vx;P.vel[i*3+1]=vy;P.vel[i*3+2]=vz;P.life[i]=life}
+
+// ---------------- state ----------------
+const S={deck:[],sessions:new Map(),order:[],fly:[],focus:0,follow:true,mode:'wait',seen:new Map(),hover:null};
+function deckEntry(name){let d=S.deck.find(x=>x.name===name);if(!d){d={name,desc:'',tokens:1500,source:'unknown',played:0};S.deck.push(d);handDirty=true}return d}
+function session(id,info={}){let s=S.sessions.get(id);
+  if(!s){const t=buildTank();scene.add(t.grp);
+    s={id,title:info.title||id.slice(0,8),model:info.model||'',size:info.size||200000,used:info.used||0,pending:0,shown:0,compactAt:info.compactAt||0.92,
+       tank:t,cards:[],nCards:0,layers:[],compacts:0,phase:null,ripples:[],puddle:0,ended:null,el:null,targetX:0,aiTitle:'',keep:null,postUsed:null,gotStatus:true};
+    S.sessions.set(id,s);S.order.push(id);relayout();buildLabels(s)}
+  if(info.title)s.title=info.title;if(info.proj)s.proj=info.proj;if(info.model)s.model=info.model;if(info.size)s.size=info.size;if(info.aiTitle)s.aiTitle=info.aiTitle;if(info.compactAt)s.compactAt=info.compactAt;
+  return s}
+function relayout(){const ids=S.order.filter(id=>S.sessions.has(id));ids.forEach((id,i)=>{const s=S.sessions.get(id);s.targetX=(i-(ids.length-1)/2)*SPACING;if(!s.placed){s.tank.grp.position.x=s.targetX;s.placed=true}});
+  S.focus=clamp(S.focus,0,Math.max(0,ids.length-1));renderRows()}
+function removeSession(id){const s=S.sessions.get(id);if(!s)return;scene.remove(s.tank.grp);for(const c of s.cards)scene.remove(c.mesh);s.el.root.remove();S.sessions.delete(id);S.order=S.order.filter(x=>x!==id);relayout()}
+const focusSession=()=>S.sessions.get(S.order.filter(id=>S.sessions.has(id))[S.focus]);
+
+// ---------------- events (same shape for JSONL lines and demo) ----------------
+function apply(ev,replay){
+  replay=replay||!!ev.snap; // snap = server snapshot of a tank (first sight / woke up): place, don't throw
+  switch(ev.type){
+    case 'deck': for(const d of ev.skills||ev.deck||[]){const e=deckEntry(d.name);Object.assign(e,{desc:d.desc,tokens:d.tokens,source:d.source})}handDirty=true;break;
+    case 'session': {const s=session(ev.session,ev);if(ev.source==='clear'){clearCards(s);s.used=0}if(ev.snap){clearCards(s);s.compacts=ev.compacts||0}break}
+    case 'status': {const s=session(ev.session,{model:ev.model,size:ev.size,title:S.sessions.has(ev.session)?null:ev.title});s.used=ev.used;if(ev.size)s.size=ev.size;if(ev.compactAt)s.compactAt=ev.compactAt;s.pending=0;s.gotStatus=true;if(replay)s.shown=s.used/s.size;break}
+    case 'skill': {const s=session(ev.session,ev);const d=deckEntry(ev.skill.name);Object.assign(d,{desc:ev.skill.desc||d.desc,tokens:ev.skill.tokens||d.tokens,source:ev.skill.source||d.source});handDirty=true;
+      const k=s.id+'|'+d.name,t=ev.ts||Date.now();if(t-(S.seen.get(k)||0)<4000)break;S.seen.set(k,t);d.played=(d.played||0)+1;d.lastAt=performance.now();
+      if(replay)placeCard(s,d,true);else{throwCard(s,d);addLog('skill',`${d.name} → ${s.title}`,'+'+fmtK(d.tokens))}break}
+    case 'compact': {const s=session(ev.session,ev);if(replay){clearCards(s);s.compacts++;if(ev.post)s.used=ev.post}else startCompact(s,ev.trigger,ev.post);break}
+    case 'kept': {const s=session(ev.session,ev);if(replay){for(const n of ev.names||[])placeCard(s,deckEntry(n),true)}else{s.keep=new Set(ev.names||[]);if(!s.phase)keepOnly(s)}break}
+    case 'end': if(replay)removeSession(ev.session);else{const s=S.sessions.get(ev.session);if(s)s.ended=now()}break;
+  }
+}
+function clearCards(s){for(const c of s.cards)scene.remove(c.mesh);s.cards=[];s.nCards=0;s.layers=[]}
+// after a real compaction only the skills Claude Code re-injected (invoked_skills) stay in the tank — latest copy of each
+function keepOnly(s){const keep=s.keep;s.keep=null;if(!keep)return;const last=new Map();s.cards.forEach((c,i)=>{if(keep.has(c.d.name))last.set(c.d.name,i)});const idx=new Set(last.values());
+  s.cards=s.cards.filter((c,i)=>{if(idx.has(i)){c.fadeT=0;return true}scene.remove(c.mesh);return false});s.nCards=s.cards.length;s.layers=s.layers.filter(L=>keep.has(L.name))}
+function throwCard(s,d){if(!hand.some(h=>h.d===d)){rebuildHand();layoutHand(0)}handGrp.updateMatrixWorld(true);const from=handPos(d);const mesh=makeCard(d);mesh.position.copy(from.p);mesh.quaternion.copy(from.q);scene.add(mesh);
+  S.fly.push({s,d,mesh,t0:now(),dur:.9,from:from.p.clone(),q0:from.q.clone(),lx:(Math.random()-.5)*1.2,lz:(Math.random()-.5)*.5,spin:(Math.random()<.5?-1:1)*(Math.PI*2+Math.random()*2)})}
+function placeCard(s,d,instant){const mesh=makeCard(d);scene.add(mesh);s.layers.push({name:d.name,tokens:d.tokens});
+  s.nCards++;const c={d,mesh,lx:(Math.random()-.5)*1.4,lz:(Math.random()-.5)*.6,ly:0,vy:0,rot:(Math.random()-.5)*1.2,settled:false,fade:0,fadeT:0};
+  c.rest=0.05+Math.min(10,s.cards.filter(o=>Math.hypot(o.lx-c.lx,o.lz-c.lz)<.35).length)*0.012;
+  if(instant){c.ly=c.rest;c.settled=true}s.cards.push(c);if(s.cards.length>18){scene.remove(s.cards[0].mesh);s.cards.shift()}return c}
+function startCompact(s,trigger,post){if(s.phase&&s.phase.kind==='overflow')return;s.phase={kind:'overflow',t0:now()};s.postUsed=post||null;s.gotStatus=false;s.compacts++;addLog('compact',`${s.title} 滿出來了，壓縮`,trigger==='manual'?'手動':'自動')}
+
+// ---------------- labels (HTML 疊在 3D 上) ----------------
+const labels=document.getElementById('labels');
+// "project · title": the project folder in gold, then the session's ai-title (project alone when there is none)
+function setTitle(el,s){const k=s.title+'\u0000'+(s.aiTitle||'');if(el.dataset.k===k)return;el.dataset.k=k;el.replaceChildren();const p=document.createElement('i');p.textContent=s.title;el.append(p);if(s.aiTitle)el.append(document.createTextNode(' · '+s.aiTitle));el.title=s.aiTitle?s.title+' · '+s.aiTitle:s.title}
+function buildLabels(s){const root=document.createElement('div');const tl=document.createElement('div');tl.className='tl';
+  const a=document.createElement('a');a.append(document.createElement('b'));const sm=document.createElement('small');tl.append(a,sm);
+  if(LIVE&&!FORCE_DEMO){a.href='../?session='+encodeURIComponent(s.id);a.title='開這個 session 的單一畫面（牌庫、曲線、回放）'}const pl=document.createElement('div');pl.className='pl';
+  const cl=document.createElement('div');cl.className='cl';const bn=document.createElement('div');bn.className='bn';bn.textContent='滿出來了・壓縮中';bn.hidden=true;
+  root.append(tl,pl,cl,bn);labels.append(root);s.el={root,tl,pl,cl,bn}}
+const V=new THREE.Vector3();function toScreen(v){V.copy(v).project(camera);const r=canvas.getBoundingClientRect();return[(V.x+1)/2*r.width,(1-V.y)/2*r.height,V.z<1]}
+function updateLabels(t){for(const s of S.sessions.values()){const g=s.tank.grp.position;const used=s.used+s.pending,p=used/s.size;
+  let [x,y,ok]=toScreen(V.set(g.x,TH+0.12,0));s.el.tl.style.cssText=`left:${x}px;top:${y}px;display:${ok?'':'none'}`;
+  const tb=s.el.tl.firstChild.firstChild;setTitle(tb,s);const sub=[s.model,s.compacts?`壓縮 ×${s.compacts}`:''].filter(Boolean).join(' · ');if(s.el.tl.lastChild.textContent!==sub)s.el.tl.lastChild.textContent=sub;
+  [x,y,ok]=toScreen(V.set(g.x,-0.1,TD/2+0.2));s.el.pl.style.cssText=`left:${x}px;top:${y+6}px;display:${ok?'':'none'}`;
+  s.el.pl.innerHTML=`<strong style="color:${pctColor(p)}">${(p*100).toFixed(p<.1?1:0)}%</strong><span><em>${fmtK(used)}</em> / ${fmtK(s.size)}<br>剩 ${fmtK(Math.max(0,s.size-used))} · 牌 ${s.nCards}${s.pending?' · 估算中':''}</span>`;
+  [x,y,ok]=toScreen(V.set(g.x+TW/2-0.05,TH*s.compactAt,TD/2));s.el.cl.style.cssText=`left:${x-120}px;top:${y-3}px;display:${ok?'':'none'}`;s.el.cl.textContent=`自動壓縮線 ${Math.round(s.compactAt*100)}%`;
+  const ph=s.phase;let show=false;if(ph){const a=t-ph.t0;show=ph.kind==='overflow'?a>1.1:a<1.2}
+  s.el.bn.hidden=!show;if(show){[x,y]=toScreen(V.set(g.x,TH*.62,TD/2));s.el.bn.style.left=x+'px';s.el.bn.style.top=y+'px'}
+  s.el.root.style.opacity=s.ended?String(1-clamp((t-s.ended)/2)):'1'}}
+
+// ---------------- hand (手牌：桌緣扇形) ----------------
+let hand=[],handDirty=true;const handGrp=new THREE.Group();scene.add(handGrp);
+// the hand is a fan of at most HAND_MAX cards: the most recently played first, then the rest of the deck (a deck of 300 skills
+// would otherwise be a picket fence of 300 textures); a card thrown from outside the hand joins it first
+const HAND_MAX=16;
+function handCards(){const played=S.deck.filter(d=>d.played).sort((a,b)=>(b.lastAt||0)-(a.lastAt||0));const rest=S.deck.filter(d=>!d.played);return played.concat(rest).slice(0,HAND_MAX).sort((a,b)=>a.name.localeCompare(b.name))}
+function rebuildHand(){for(const h of hand)handGrp.remove(h.mesh);hand=[];const cards=handCards();const n=cards.length;
+  cards.forEach((d,i)=>{const u=n===1?0:i/(n-1)-.5;const mesh=makeCard(d);mesh.castShadow=true;handGrp.add(mesh);hand.push({d,mesh,u,lift:0})});layoutHand(0);handDirty=false}
+function layoutHand(dt){for(const h of hand){const target=S.hover===h.d?1:0;h.lift+= (target-h.lift)*(1-Math.exp(-12*dt||-1));
+  const n=hand.length,spread=Math.min(7.5,n*0.36);const x=h.u*spread,z=2.45+Math.abs(h.u)*0.25-h.lift*0.15;
+  h.mesh.position.set(x,0.2+Math.abs(h.u)*0.02+h.lift*0.45,z);h.mesh.rotation.set(-0.95+h.lift*0.5,0,-h.u*0.35);const sc=1+h.lift*0.55;h.mesh.scale.set(sc,sc,1)}}
+function handPos(d){const h=hand.find(x=>x.d===d);const p=new THREE.Vector3(),q=new THREE.Quaternion();if(h){h.mesh.getWorldPosition(p);h.mesh.getWorldQuaternion(q)}else{p.set(camera.position.x,4,2)}return{p,q}}
+
+// ---------------- simulation ----------------
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2(),Q=new THREE.Quaternion(),E=new THREE.Euler(),UP=new THREE.Vector3(0,1,0);
+function waterH(s){return 0.04+(TH-0.04)*clamp(s.shown,0,1.08)}
+function step(dt,t){
+  if(handDirty)rebuildHand();layoutHand(dt);handGrp.position.x=controls.target.x;
+  // flying cards: parabola from hand into the focused tank, spin, splash
+  for(const f of[...S.fly]){const u=clamp((t-f.t0)/f.dur),e=ease(u);const tp=f.s.tank.grp.position;const to=new THREE.Vector3(tp.x+f.lx,waterH(f.s)+0.05,f.lz);
+    const mid=f.from.clone().lerp(to,.5);mid.y=Math.max(f.from.y,to.y)+1.6;
+    const p=f.from.clone().multiplyScalar((1-e)*(1-e)).add(mid.multiplyScalar(2*(1-e)*e)).add(to.clone().multiplyScalar(e*e));f.mesh.position.copy(p);
+    E.set(-Math.PI/2*e,f.spin*e,0);Q.setFromEuler(E);f.mesh.quaternion.copy(f.q0).slerp(Q,ease(u*1.3));
+    if(u>=1){S.fly.splice(S.fly.indexOf(f),1);scene.remove(f.mesh);land(f,t)}}
+  for(const s of S.sessions.values()){const T=s.tank;T.grp.position.x+= (s.targetX-T.grp.position.x)*(1-Math.exp(-4*dt));const gx=T.grp.position.x;
+    // 水位追目標（像馬達追設定值，有延遲）
+    let target=(s.used+s.pending)/s.size;
+    if(s.phase){const a=t-s.phase.t0;
+      if(s.phase.kind==='overflow'){target=lerp(Math.max(s.shown,target),1.07,clamp((a-.1)/.7));s.puddle=Math.max(s.puddle,clamp((a-.7)/1.3));
+        if(a>0.7&&a<2.2)for(let i=0;i<4;i++){const side=Math.random()<.5?-1:1;const alongX=Math.random()<.5;
+          if(alongX)emit(drops,gx+side*(TW/2+0.03),TH-Math.random()*0.05,(Math.random()-.5)*TD,side*0.25,-0.2,0,1.2);else emit(drops,gx+(Math.random()-.5)*TW,TH,side*(TD/2+0.03),0,-0.2,side*0.25,1.2)}
+        if(a>2.3){s.phase={kind:'drain',t0:t};for(const c of s.cards)c.fadeT=s.keep&&s.keep.has(c.d.name)?0:1;if(!s.gotStatus)s.used=s.postUsed!=null?s.postUsed:Math.min(s.used,Math.round(s.size*.16));s.pending=0}}
+      else if(a>1.8){s.phase=null;if(s.keep)keepOnly(s);else{s.layers=[];while(s.cards.length>8){scene.remove(s.cards[0].mesh);s.cards.shift()}s.nCards=s.cards.length}}}
+    const k=s.phase&&s.phase.kind==='drain'?2:2.6;s.shown+=(target-s.shown)*(1-Math.exp(-k*dt));
+    if(!s.phase)s.puddle=Math.max(0,s.puddle-dt*.04);
+    const h=waterH(s),warn=clamp((s.shown-.7)/.25);
+    T.body.scale.y=Math.max(0.001,h-0.04);T.body.position.y=0.04+(h-0.04)/2;T.body.material.color.setHSL(lerp(.54,.08,warn),.65,lerp(.38,.36,warn));
+    T.surf.material.color.setHSL(lerp(.53,.09,warn),.62,lerp(.52,.5,warn));T.surf.position.y=0;
+    // heightfield surface: base waves + ripples from card splashes
+    const pa=T.sGeo.attributes.position,choppy=.012+warn*.02;s.ripples=s.ripples.filter(r=>t-r.t0<3.5);
+    for(let i=0;i<pa.count;i++){const x=pa.getX(i),z=pa.getZ(i);let y=h+Math.sin(x*3.1+t*1.5)*choppy+Math.sin(z*5+x*1.7-t*2.1)*choppy*.6;
+      for(const r of s.ripples){const age=t-r.t0,d=Math.hypot(x-r.x,z-r.z);y+=r.a*Math.exp(-age*1.4)*Math.exp(-d/(.25+age*.5))*Math.sin(d*14-age*9)}pa.setY(i,y)}
+    pa.needsUpdate=true;T.sGeo.computeVertexNormals();
+    T.lineGrp.position.y=TH*s.compactAt;
+    T.puddle.material.opacity=.45*s.puddle;T.puddle.scale.set(1.5+s.puddle*.9,1+s.puddle*.6,1);
+    // dye layers: each loaded skill tints a band proportional to its tokens
+    const layerA=s.phase&&s.phase.kind==='drain'?1-clamp((t-s.phase.t0)/1.2):1;
+    while(T.dye.children.length<s.layers.length){const m=new THREE.Mesh(new THREE.BoxGeometry(TW-0.06,1,TD-0.06),new THREE.MeshStandardMaterial({transparent:true,depthWrite:false,roughness:.2}));m.renderOrder=4;T.dye.add(m)}
+    let acc=0.04;T.dye.children.forEach((m,i)=>{const L=s.layers[i];if(!L||acc>=h-0.01){m.visible=false;return}const lh=Math.min(h-0.01-acc,(TH-0.04)*L.tokens/s.size);
+      m.visible=true;m.scale.y=Math.max(.001,lh);m.position.y=acc+lh/2;m.material.color.setHSL(hueOf(L.name)/360,.7,.5);m.material.opacity=.3*layerA;acc+=lh});
+    // sunk cards: sink with drag, wobble, settle flat on the sand
+    for(const c of s.cards){c.fade+= (c.fadeT-c.fade)*(1-Math.exp(-2*dt));
+      if(!c.settled){c.vy=lerp(c.vy,-0.35,1-Math.exp(-3*dt));c.ly+=c.vy*dt;c.lx+=Math.sin(t*2+c.rot)*dt*.05;if(c.ly<=c.rest){c.ly=c.rest;c.settled=true}}
+      c.mesh.position.set(gx+c.lx,c.ly,c.lz);const wob=c.settled?0:Math.sin(t*4+c.rot)*.35;c.mesh.rotation.set(-Math.PI/2+wob*.4,0,c.rot+wob,'XZY');
+      const g=lerp(.85,.4,c.fade);c.mesh.material[4].color.setRGB(g,g*.97,g*.92)}
+    // fish swim inside the water
+    for(const f of T.fish){const u=f.userData;u.x+=u.vx*dt;if(u.x>TW/2-.2||u.x<-TW/2+.2)u.vx*=-1;const fy=clamp(.12+u.y*(h-.25),.1,Math.max(.12,h-.1));
+      f.position.set(u.x,fy+Math.sin(t*1.4+u.ph)*.03,u.z);f.rotation.y=u.vx>0?0:Math.PI;u.tail.rotation.y=Math.sin(t*12+u.ph)*.5;f.visible=h>.2}
+    if(Math.random()<dt*(2+s.shown*4))emit(bubbles,gx+(Math.random()-.5)*(TW-.2),.06,(Math.random()-.5)*(TD-.2),0,.35+Math.random()*.25,0,(h-.06)/.45);
+    if(s.ended&&t-s.ended>2.2)removeSession(s.id)}
+  // particles
+  for(const P of[drops,bubbles]){const pos=P.pos,v=P.vel;for(let i=0;i<P.n;i++){if(P.life[i]<=0){pos[i*3+1]=-999;continue}P.life[i]-=dt;
+    if(P===drops)v[i*3+1]-=4.5*dt;pos[i*3]+=v[i*3]*dt;pos[i*3+1]+=v[i*3+1]*dt;pos[i*3+2]+=v[i*3+2]*dt;if(P===drops&&pos[i*3+1]<0.01){P.life[i]=0}}P.p.geometry.attributes.position.needsUpdate=true}
+  // 鏡頭跟隨
+  const fs=focusSession();if(fs&&S.follow){controls.target.x+= (fs.tank.grp.position.x-controls.target.x)*(1-Math.exp(-3*dt));}
+}
+function land(f,t){const s=f.s;s.pending+=f.d.tokens;const c=placeCard(s,f.d,false);c.lx=f.lx;c.lz=f.lz;c.ly=waterH(s);c.vy=-.9;
+  s.ripples.push({x:f.lx,z:f.lz,t0:t,a:.06});const gx=s.tank.grp.position.x,h=waterH(s);
+  for(let i=0;i<40;i++){const a=Math.random()*Math.PI*2,sp=.4+Math.random()*1.1;emit(drops,gx+f.lx,h,f.lz,Math.cos(a)*sp*.6,1.4+Math.random()*1.4,Math.sin(a)*sp*.4,1)}
+  for(let i=0;i<14;i++)emit(bubbles,gx+f.lx+(Math.random()-.5)*.2,h-.1-Math.random()*.2,f.lz+(Math.random()-.5)*.2,0,.3,0,.6);
+  if(S.mode==='demo'&&(s.used+s.pending)/s.size>=s.compactAt)setTimeout(()=>startCompact(s,'auto'),900)}
+
+// ---------------- 水位面板 (像馬達面板：目前值追目標，點一列聚焦；示範模式可拉滑桿) ----------------
+const rowsEl=document.getElementById('rows');
+function renderRows(){rowsEl.innerHTML='';const ids=S.order.filter(id=>S.sessions.has(id));
+  if(!ids.length){rowsEl.innerHTML='<div class="keys">還沒有 session。開一個 Claude Code session 或打一句話，魚缸就會出現。</div>';return}
+  ids.forEach((id,i)=>{const s=S.sessions.get(id);const b=document.createElement('button');b.type='button';b.className='row'+(i===S.focus?' sel':'');b.dataset.id=id;
+    b.innerHTML=`<div class="top"><b></b><span></span></div><div class="bar"><i></i><u></u><s></s></div><div class="meta"><span class="cur"></span><span class="tgt"></span></div>`;
+    setTitle(b.querySelector('b'),s);b.onclick=e=>{if(e.target.tagName==='INPUT')return;S.focus=i;S.follow=true;renderRows()};
+    if(S.mode==='demo'&&i===S.focus){const lab=document.createElement('label');lab.textContent='手動設定已用量（示範）';const r=document.createElement('input');r.type='range';r.min=0;r.max=100;r.value=Math.round(s.used/s.size*100);r.id='lvl-'+id;r.setAttribute('aria-label','手動設定已用量');
+      r.oninput=()=>{s.used=Math.round(r.value/100*s.size);s.pending=0;if(s.used/s.size>=s.compactAt)startCompact(s,'manual')};lab.htmlFor=r.id;b.append(lab,r)}
+    rowsEl.append(b)})}
+function updateRows(){for(const b of rowsEl.querySelectorAll('.row')){const s=S.sessions.get(b.dataset.id);if(!s)continue;const tgt=(s.used+s.pending)/s.size;
+  setTitle(b.querySelector('.top b'),s);b.querySelector('.top span').textContent=`${s.model||'—'} · 牌 ${s.nCards}`;const i=b.querySelector('.bar i');i.style.width=clamp(s.shown,0,1)*100+'%';i.style.background=pctColor(s.shown);
+  b.querySelector('.bar u').style.left=`calc(${clamp(tgt,0,1)*100}% - 1px)`;b.querySelector('.bar s').style.left=s.compactAt*100+'%';
+  b.querySelector('.cur').textContent=`目前 ${fmtK(s.shown*s.size)}`;b.querySelector('.tgt').textContent=`目標 ${fmtK(s.used+s.pending)} / ${fmtK(s.size)}`}}
+const panel=document.getElementById('panel'),bPanel=document.getElementById('bPanel');
+function setPanel(open){panel.classList.toggle('collapsed',!open);bPanel.textContent=open?'收起':'展開';bPanel.setAttribute('aria-expanded',String(open))}
+bPanel.onclick=()=>setPanel(panel.classList.contains('collapsed'));setPanel(!mobile());
+const logEl=document.getElementById('log');
+function addLog(kind,text,amount){const d=new Date();const li=document.createElement('li');if(kind==='compact')li.className='c';
+  const tm=document.createElement('time');tm.textContent=`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;const sp=document.createElement('span');sp.textContent=text;const b=document.createElement('b');b.textContent=amount||'';
+  li.append(tm,sp,b);logEl.prepend(li);while(logEl.children.length>30)logEl.lastChild.remove()}
+
+// ---------------- 操控：鍵盤、指標、鏡頭跟隨 ----------------
+function moveFocus(dir){const n=S.order.filter(id=>S.sessions.has(id)).length;if(!n)return;S.focus=clamp(S.focus+dir,0,n-1);S.follow=true;renderRows()}
+addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;const k=e.key.toLowerCase();
+  if(k==='a'||k==='arrowleft'){moveFocus(-1);e.preventDefault()}else if(k==='d'||k==='arrowright'){moveFocus(1);e.preventDefault()} // D = 往右邊的缸
+  else if(k==='f'){S.follow=!S.follow}else if(S.mode==='demo'&&k===' '){demoThrow();e.preventDefault()}else if(S.mode==='demo'&&k==='c'){const s=focusSession();if(s)startCompact(s,'manual')}});
+function pick(e){const r=canvas.getBoundingClientRect();mouse.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects(hand.map(h=>h.mesh),false)[0];return hit?hit.object.userData.d:null}
+function pickTank(e){const r=canvas.getBoundingClientRect();mouse.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(mouse,camera);
+  const ids=S.order.filter(id=>S.sessions.has(id));const hit=ray.intersectObjects(ids.map(id=>S.sessions.get(id).tank.grp),true)[0];if(!hit)return -1;
+  for(let o=hit.object;o;o=o.parent){const i=ids.findIndex(id=>S.sessions.get(id).tank.grp===o);if(i>=0)return i}return -1}
+canvas.addEventListener('pointermove',e=>{S.hover=pick(e);canvas.style.cursor=S.hover&&S.mode==='demo'?'pointer':''});
+canvas.addEventListener('pointerleave',()=>S.hover=null);
+let downAt=null;canvas.addEventListener('pointerdown',e=>downAt=[e.clientX,e.clientY]);
+canvas.addEventListener('pointerup',e=>{if(!downAt||Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>6)return;const d=pick(e);if(d&&S.mode==='demo'){const s=focusSession();if(s)apply({type:'skill',session:s.id,skill:{name:d.name},ts:Date.now()});return}
+  const ti=pickTank(e);if(ti<0)return;if(ti===S.focus&&S.mode==='live'){const s=focusSession();if(s)location.href='../?session='+encodeURIComponent(s.id);return}S.focus=ti;S.follow=true;renderRows()});
+controls.addEventListener('start',()=>{});
+
+// ---------------- resize (避免畫面被拉成蛋形：aspect 與 composer 一起更新) ----------------
+function resize(){const r=canvas.getBoundingClientRect();const w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);composer.setSize(w,h);bloom.setSize(w,h);
+  camera.aspect=w/h;camera.fov=w/h<0.9?52:38;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);
+
+// ---------------- data: poll events.jsonl (http Range) or a picked folder ----------------
+const FORCE_DEMO=new URLSearchParams(location.search).has('demo');
+const LIVE=!!window.CONTEXT_TANK_LIVE||(location.protocol==='http:'&&/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname));
+const conn=document.getElementById('conn');
+function setMode(m,text){S.mode=m;conn.className='pill '+m;conn.querySelector('span').textContent=text;document.getElementById('demoCtrls').hidden=m!=='demo';document.getElementById('hint').hidden=m!=='demo';
+  for(const el of document.querySelectorAll('.demoOnly'))el.hidden=m!=='demo';document.getElementById('toSingle').hidden=m==='demo'||!LIVE;renderRows()}
+let offset=0,partial='',firstRead=true;
+function ingest(text,replay){const lines=(partial+text).split('\n');partial=lines.pop();for(const l of lines){if(!l.trim())continue;try{apply(JSON.parse(l),replay)}catch{}}}
+function resetAll(){for(const id of[...S.sessions.keys()])removeSession(id);S.seen.clear();offset=0;partial='';firstRead=true;for(const d of S.deck)d.played=0}
+async function pollHttp(){try{
+    const r=await fetch('events.jsonl',{headers:{Range:`bytes=${offset}-`},cache:'no-store'});
+    if(r.status===204||r.status===416){const total=Number(r.headers.get('x-size')??(r.headers.get('content-range')||'').split('/')[1]);if(total<offset){resetAll()}}
+    else if(r.ok){const cr=r.headers.get('content-range');const total=cr?Number(cr.split('/')[1]):null;if(r.status===200&&offset>0){resetAll()}
+      const buf=await r.arrayBuffer();const text=new TextDecoder().decode(buf);ingest(text,firstRead);offset+=buf.byteLength;if(total!=null&&total<offset)resetAll();firstRead=false}
+    firstRead=false; // an empty file (416) still counts as the initial read, so later lines animate
+    if(S.mode!=='live')setMode('live','LIVE 輪詢 events.jsonl');
+  }catch{setMode('wait','找不到 events.jsonl，重試中…')}
+  setTimeout(pollHttp,500)}
+async function pollDeckHttp(){try{const r=await fetch('deck.json',{cache:'no-store'});if(r.ok)apply({type:'deck',...await r.json()})}catch{}setTimeout(pollDeckHttp,10000)}
+let dirHandle=null;
+async function pollFolder(){try{
+    const fh=await dirHandle.getFileHandle('events.jsonl');const file=await fh.getFile();if(file.size<offset)resetAll();
+    if(file.size>offset){const buf=await file.slice(offset).arrayBuffer();ingest(new TextDecoder().decode(buf),firstRead);offset+=buf.byteLength;firstRead=false}
+    firstRead=false;
+    if(S.mode!=='live')setMode('live','LIVE 讀取資料夾');
+    if(!pollFolder.deckAt||Date.now()-pollFolder.deckAt>10000){pollFolder.deckAt=Date.now();try{const df=await(await dirHandle.getFileHandle('deck.json')).getFile();apply({type:'deck',...JSON.parse(await df.text())})}catch{}}
+  }catch{setMode('wait','資料夾裡還沒有 events.jsonl')}
+  setTimeout(pollFolder,700)}
+document.getElementById('bFolder').onclick=async()=>{try{dirHandle=await window.showDirectoryPicker({id:'context-tank',mode:'read'});stopDemo();resetAll();pollFolder()}
+  catch(e){if(e.name!=='AbortError')setMode(S.mode,'這個瀏覽器不能開資料夾，請改用 node serve.mjs')}};
+
+// ---------------- demo ----------------
+// No skill list ships with skill-tank: on a server the demo deals the user's own skills (deck.json); without one it uses placeholders.
+const DEMO_DECK=Array.from({length:8},(_,i)=>({name:'example-skill-'+(i+1),desc:'示範用的佔位牌：連上本機 server 才會載入你自己的 skills。',tokens:1200+((i*1789)%4200),source:['user','plugin','project','command','builtin'][i%5]}));
+let demoTimers=[],auto=true;
+function demoThrow(sid){const s=sid?S.sessions.get(sid):focusSession();if(!s||s.phase||!S.deck.length)return;const d=S.deck[Math.floor(Math.random()*S.deck.length)];apply({type:'skill',session:s.id,skill:{name:d.name},ts:Date.now()})}
+async function startDemo(){setMode('demo','示範模式');let own=null;if(LIVE){try{const r=await fetch('deck.json',{cache:'no-store'});if(r.ok)own=(await r.json()).skills}catch{}}
+  apply({type:'deck',skills:own&&own.length?own:DEMO_DECK});const pickN=k=>S.deck[(k*7)%S.deck.length].name;
+  apply({type:'session',session:'demo-a',title:'api-server',model:'Opus',size:200000},true);apply({type:'status',session:'demo-a',used:104000,size:200000,compactAt:.835},true);
+  apply({type:'session',session:'demo-b',title:'web-frontend',model:'Sonnet',size:200000},true);apply({type:'status',session:'demo-b',used:47000,size:200000,compactAt:.835},true);
+  for(const[sid,n]of[['demo-a',pickN(0)],['demo-a',pickN(1)],['demo-b',pickN(2)]])apply({type:'skill',session:sid,skill:{name:n},ts:0},true);
+  setTimeout(()=>demoThrow('demo-a'),900);
+  demoTimers.push(setInterval(()=>{if(!auto)return;for(const s of S.sessions.values()){if(s.phase)continue;s.used=Math.min(s.size,s.used+s.pending+Math.round((s.id==='demo-a'?5200:3100)*(.5+Math.random())));s.pending=0;
+      if(s.used/s.size>=s.compactAt)startCompact(s,'auto')}
+    if(Math.random()<.85)demoThrow(Math.random()<.6?'demo-a':'demo-b')},2600))}
+function stopDemo(){demoTimers.forEach(clearInterval);demoTimers=[]}
+document.getElementById('bThrow').onclick=()=>demoThrow();
+document.getElementById('bChat').onclick=()=>{for(const s of S.sessions.values()){s.used=Math.min(s.size,s.used+s.pending+9000);s.pending=0}addLog('chat','聊了一輪（對話也占水位）','+9k')};
+document.getElementById('bCompact').onclick=()=>{const s=focusSession();if(s)startCompact(s,'manual')};
+document.getElementById('bAuto').onclick=e=>{auto=!auto;e.currentTarget.setAttribute('aria-pressed',String(auto))};
+
+// ---------------- boot ----------------
+resize();
+if(!FORCE_DEMO&&LIVE){setMode('wait','連線中…');pollHttp();pollDeckHttp()}
+else{startDemo();if(location.protocol==='file:'&&'showDirectoryPicker' in window){document.getElementById('bFolder').hidden=false}}
+let last=now(),frames=0;
+function frame(){const t=now(),dt=Math.min(.05,t-last);last=t;step(dt,t);controls.update();composer.render();updateLabels(t);if(t-(frame.rowsAt||0)>.25){frame.rowsAt=t;updateRows()}++frames;
+  if(frames===2)document.getElementById('loading').remove();requestAnimationFrame(frame)}
+// test hook: advance the simulation deterministically in headless checks
+window.__advance=(sec)=>{const n=Math.round(sec*30);for(let i=0;i<n;i++){const t=last+1/30;step(1/30,t);last=t}};
+window.__table={stats:()=>({mode:S.mode,frames,fly:S.fly.length,deck:S.deck.length,focus:S.focus,sessions:S.order.filter(id=>S.sessions.has(id)).map(id=>{const s=S.sessions.get(id);
+  return{id,title:s.title,aiTitle:s.aiTitle,label:s.el&&s.el.tl.firstChild.firstChild.textContent,used:s.used,pending:s.pending,size:s.size,pct:(s.used+s.pending)/s.size,shown:s.shown,cards:s.nCards,meshes:s.cards.length,compactAt:s.compactAt,compacts:s.compacts,phase:s.phase&&s.phase.kind,ended:!!s.ended}})})};
+window.__ready=true;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
